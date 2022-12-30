@@ -323,10 +323,29 @@ class Parameter(BaseModel):
 class SearchRuleSet(BaseModel):
     query: Query | None
 
+class AnnotationKeyValue(BaseModel):
+    key: str
+    value: Any
+class EshConfigurationElement(BaseModel):
+    model: str | None
+    ref: list[str] | None #todo check None
+    annotations: list[AnnotationKeyValue] | None # todo check None
+    # '@Search.defaultSearchElement': bool | None
 
-
+class EshConfiguration(BaseModel):
+    id: str | None
+    elements: list[EshConfigurationElement] | None
+    annotations: list[AnnotationKeyValue] | None
+    # search_searchable: bool | None
 
 class EshRequest(BaseModel):
     parameters: list[Parameter] | None
-    query: EshObject
+    query: EshObject | None #todo check NONE
     rules: list[Rule] | None
+    configurations: list[EshConfiguration] | None
+
+if __name__ == '__main__':
+    # a = EshConfigurationElement(ref=["a"], b="SA", annotations={'@a.b':'s'})
+    # print(a)
+    b = EshRequest(query=EshObject(top=2), configurations=[{"id": "PERSON", "@Search.searchable": 'true'}])
+    print(b)

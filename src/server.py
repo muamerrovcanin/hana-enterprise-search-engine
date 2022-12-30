@@ -31,7 +31,7 @@ from db_connection_pool import (
     ConnectionPool, Credentials, DBBulkProcessing, DBConnection)
 from esh_client import EshObject, EshRequest, SearchRuleSet
 from esh_objects import convert_search_rule_set_query_to_string, generate_search_rule_set_query
-from request_mapping import map_request_to_rule_set, map_request_to_rule_set_old
+from request_mapping import map_request_to_esh_request, map_request_to_rule_set, map_request_to_rule_set_old
 import db_crud as crud
 import db_search as search
 
@@ -323,19 +323,45 @@ async def post_model(tenant_id: str, cson=Body(...), simulate: bool = False):
         return {'detail': 'Model successfully deployed'}
 
 @app.post('/v0.1/configuration/{tenant_id}')
-async def post_model(tenant_id: str, cson=Body(...), simulate: bool = False):
+async def post_model(tenant_id: str, cson_config=Body(...), simulate: bool = False):
     """ Configure ESH model (ESH_CONFIG) """
-    errors = consistency_check.check_cson(cson)
+    # TODO mix cson from database and ESH_CONFIG from Body
+    tenant_schema_name = get_tenant_schema_name(tenant_id)
+    cson_db = None
+    with DBConnection(glob.connection_pools[DBUserType.DATA_READ]) as db:
+        try:
+            sql = f'select CONTENT from "{tenant_schema_name}"."_CONTROL" where "TYPE" = \'CSON\''
+            db.cur.execute(sql)
+            res = db.cur.fetchone()
+            if res.column_values:
+                cson_db = json.loads(res.column_values[0])
+        except HDBException as e:
+            db.cur.connection.rollback()
+            if e.errorcode == 362:
+                handle_error(
+                    f"Tennant id '{tenant_id}' does not exist", 404)
+            else:
+                handle_error(f'dbapi Error: {e.errorcode}, {e.errortext}')
+    if cson_db:
+        for config in cson_config:
+            for element in config['elements']:
+                entity_name = element['ref'][0]
+                element['ref'].pop(0)
+            cson_db['definitions'][entity_name]['@sap.esh.Configuration'] = [config]
+        print("ok")
+
+
+
+    errors = consistency_check.check_cson(cson_db)
     if errors:
         raise HTTPException(422, errors)
     if simulate:
         return {'detail': 'Model is consistent'}
     else:
-        tenant_schema_name = get_tenant_schema_name(tenant_id)
         created_at = datetime.now()
         try:
             id_generator = get_IdGenerator(tenant_id, tenant_schema_name)
-            mapping = convert.cson_to_mapping(cson, id_generator)
+            mapping = convert.cson_to_mapping(cson_db, id_generator)
             ddl = sqlcreate.mapping_to_ddl(
                 mapping, tenant_schema_name, int(glob.esh_apiversion[1]))
         except convert.ModelException as e:
@@ -348,11 +374,25 @@ async def post_model(tenant_id: str, cson=Body(...), simulate: bool = False):
                 res = db.cur.fetchone()
                 if res[0]:
                     handle_error(res[0], 422)
-                #sql = f'UPDATE "{tenant_schema_name}"._CONTROL SET CREATED_AT = ?, CONTENT = ? WHERE TYPE = \'ESH_CONFIG\''
-                #values = [(created_at, json.dumps(ddl['eshConfig']))]
-                #db.cur.executemany(sql, values)
-                #db.cur.connection.commit()
+                '''
+                sql = f'UPDATE "{tenant_schema_name}"._CONTROL SET CREATED_AT = ?, CONTENT = ? WHERE TYPE = \'ESH_CONFIG\''
+                values = [(created_at, json.dumps(ddl['eshConfig']))]
+                db.cur.executemany(sql, values)
+                db.cur.connection.commit()
+                '''
                 glob.mapping[tenant_schema_name] = mapping
+        except HDBException as e:
+            db.cur.connection.rollback()
+            if e.errorcode == 362:
+                handle_error(f"Tennant id '{tenant_id}' does not exist", 404)
+            else:
+                handle_error(f'dbapi Error: {e.errorcode}, {e.errortext}')
+        try:
+            with DBConnection(glob.connection_pools[DBUserType.DATA_WRITE]) as db:
+                sql = f'UPDATE "{tenant_schema_name}"._CONTROL SET CREATED_AT = ?, CONTENT = ? WHERE TYPE = \'ESH_CONFIG\''
+                values = [(created_at, json.dumps(ddl['eshConfig']))]
+                db.cur.executemany(sql, values)
+                db.cur.connection.commit()
         except HDBException as e:
             db.cur.connection.rollback()
             if e.errorcode == 362:
@@ -495,8 +535,23 @@ def post_search(tenant_id, esh_version, body=Body(...)):
     except HDBException:
         handle_error(str(e), 500)
 
+@app.post('/v0.3/query/{tenant_id}/{esh_version:path}')
+async def query_v03(tenant_id, esh_version, body=Body(...)):
+    schema_name = get_tenant_schema_name(tenant_id)
+    mapping = get_mapping(tenant_id, schema_name)
+    try:
+        c = crud.CRUD(get_ctx(tenant_id))
+        esh_request = map_request_to_esh_request(body)
+        return (await search.search_dynamic_esh_query(schema_name, mapping, esh_version, esh_request, c))[0]
+        # 
+        # return esh_request.dict(exclude_none=True)
+    except search.SearchException as e:
+        handle_error(str(e), 400)
+    except HDBException:
+        handle_error(str(e), 500)
+
 @app.post('/v0.2/query/{tenant_id}/{esh_version:path}')
-async def query_v1(tenant_id, esh_version, query: EshRequest):
+async def query_v02(tenant_id, esh_version, query: EshRequest):
     schema_name = get_tenant_schema_name(tenant_id)
     mapping = get_mapping(tenant_id, schema_name)
     try:

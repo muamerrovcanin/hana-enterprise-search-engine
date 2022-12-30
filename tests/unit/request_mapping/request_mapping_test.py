@@ -6,7 +6,7 @@ import request_mapping
 
 class TestRequestMapping(unittest.TestCase):
 
-    def test_request_mapping(self):
+    def x_test_request_mapping(self):
         test_query = esh_client.EshObject()
         test_query.top = 23
         test_query.scope = ["Document"]
@@ -225,6 +225,92 @@ class TestRequestMapping(unittest.TestCase):
 
         self.assertEqual(request_mapping.get_view_column_name_ex(json.loads(mapping_rule_set_definition), "example.Person", ["firstName"]), "FIRSTNAME")
         self.assertEqual(request_mapping.get_view_column_name_ex(json.loads(mapping_rule_set_definition), "example.Person", ["address","city"]), "ADDRESS_CITY")
+
+    def test_map_request_to_esh_request(self):
+        body = { "parameters": [
+        {
+        "name": {
+            "type": "Property",
+            "property": [
+            "firstName"
+            ]
+        },
+        "value": {
+            "type": "StringValue",
+            "value": "Max"
+        }
+        }
+    ],
+    "query": {
+        "top": 10,
+        "skip": 0,
+        "scope": [
+        "example.Person"
+        ]},
+          "rules": [
+    {
+      "name": "myRule1",
+      "columns": [
+        {
+          "name": {
+            "type": "Property",
+            "property": [
+              "contacts", "contactname"
+            ]
+          },
+          "minFuzziness": 0.71,
+          "ifMissingAction": "skipRule"
+        }
+      ]
+    }],
+    "configurations": [
+            {
+            "id": "PERSON",
+            "@Search.searchable": True,
+            "elements": [
+                {
+                "ref": [
+                    "Person",
+                    "name",
+                    "first"
+                ],
+                "@Search.defaultSearchElement": True
+                },
+                {
+                "ref": [
+                    "Person",
+                    "name",
+                    "last"
+                ],
+                "@Search.defaultSearchElement": True
+                }
+            ]
+            },
+            {
+            "id": "ORGANIZATION",
+            "@Search.searchable": True,
+            "elements": [
+                {
+                "ref": [
+                    "Organization",
+                    "name",
+                    "first"
+                ],
+                "@Search.defaultSearchElement": True
+                },
+                {
+                "ref": [
+                    "Organization",
+                    "name",
+                    "last"
+                ],
+                "@Search.defaultSearchElement": True
+                }
+            ]
+            }
+        ]}
+        esh_request = request_mapping.map_request_to_esh_request(body)
+        print(json.dumps(esh_request.dict(exclude_none=True), indent=4))
 
 if __name__ == '__main__':
     unittest.main()

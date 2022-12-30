@@ -1,5 +1,6 @@
 """Column View"""
 from copy import deepcopy
+from esh_client import EshRequest
 from name_mapping import NameMapping
 from constants import ENTITY_PREFIX, VIEW_PREFIX
 
@@ -30,7 +31,7 @@ def sequence_int(i = 10, step = 10):
 
 class ColumnView:
     """Column view definition"""
-    def __init__(self, mapping, anchor_entity_name, schema_name, default_annotations) -> None:
+    def __init__(self, mapping, anchor_entity_name, schema_name, default_annotations, esh_request: EshRequest | None = None) -> None:
         self.mapping = mapping
         self.anchor_entity = mapping['entities'][anchor_entity_name]
         self.schema_name = schema_name
@@ -44,6 +45,7 @@ class ColumnView:
         self.join_path_id_gen = sequence(1, 'JP', 3)
         self.join_condition_id_gen = sequence(1, 'JC', 3)
         self.ui_position_gen = sequence_int()
+        self.esh_request = esh_request
 
     def by_selector(self, view_name, odata_name, selector):
         self.view_name = view_name
@@ -125,6 +127,16 @@ class ColumnView:
                 col_conf['@Search.defaultSearchElement'] = True
             if not join_path_id and not ('@UI.hidden' in col_conf and col_conf['@UI.hidden']):
                 col_conf['@UI.identification'] = [{'position': next(self.ui_position_gen)}]
+        if self.esh_request and self.esh_request.configurations:
+            model_name = self.esh_request.query.scope[0] # todo check this how to get scope
+            for esh_config in self.esh_request.configurations:
+                if esh_config.elements[0].model == model_name:# todo check this how to get model from esh_config
+                    for property_element in esh_config.elements:
+                        if property_element.ref == name_path:
+                            for property_annotation in property_element.annotations:
+                                col_conf[property_annotation.key] = property_annotation.value
+                        break
+                    break
         self.esh_config['content']['EntityType']['Properties'].append(col_conf)
 
     def _add_join(self, join_path_id, source_join_index, target_entity_pos\
@@ -250,6 +262,16 @@ class ColumnView:
             annotations = self.anchor_entity['annotations']
             self._cleanup_labels(annotations)
             self.esh_config['content']['EntityType'] |= annotations
+        if self.esh_request and self.esh_request.configurations:
+            model_name = self.esh_request.query.scope[0] # todo check this how to get scope
+            model_annotations = None
+            for esh_config in self.esh_request.configurations:
+                if esh_config.elements[0].model == model_name:# todo check this how to get model from esh_config
+                    model_annotations = esh_config.annotations
+                    break
+            if model_annotations:
+                for model_annotation in model_annotations:
+                    self.esh_config['content']['EntityType'][model_annotation.key] = model_annotation.value
         self.esh_config['content']['Fullname'] = f'{self.schema_name}/{self.view_name}'
         self.esh_config['content']['EntityType']['@EnterpriseSearchHana.identifier'] = self.odata_name
         self._traverse(self.selector, self.anchor_entity, [], self._table(anchor_table_name))

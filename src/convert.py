@@ -222,9 +222,31 @@ def process_property(cson, pk, table, entity, element_name, table_name_mapping, 
     table['columns'][element_name] = get_sql_type(table_name_mapping, cson, referred_element, pk)
     table['columns'][element_name]['external_path'] = sur_prop_path + [element_name_ext]
     entity['elements'][element_name_ext]['column_name'] = element_name
+    dynamic_property_annotations = {}
+    entity_name = table['external_path'][0]
+    if '@sap.esh.Configuration' in cson['definitions'][entity_name]:
+        for el in cson['definitions'][entity_name]['@sap.esh.Configuration'][0]['elements']:
+            if el['ref'] == table['columns'][element_name]['external_path']:
+                dynamic_property_annotations = {k:v for k,v in el.items() if k.startswith('@') and k not in COLUMN_ANNOTATIONS}
+                break
+        '''
+        entity_identifier = list(table_name_mapping.int)[-1] # take the last one
+        for entity_configuration in cson['definitions'][entity_name]['@sap.esh.Configuration']:
+            if entity_configuration['id'] == entity_identifier:
+                for el in entity_configuration['elements']:
+                    if el['ref'] == table['columns'][element_name]['external_path']:
+                        dynamic_property_annotations = {k:v for k,v in el.items() if k.startswith('@') and k not in COLUMN_ANNOTATIONS}
+                        break
+                break
+        '''
     property_annotations = {k:v for k,v in element.items() if k.startswith('@') and k not in COLUMN_ANNOTATIONS}
     if property_annotations:
         entity['elements'][element_name_ext]['annotations'] = property_annotations
+    for k, v in dynamic_property_annotations.items():
+        if 'annotations' not in entity['elements'][element_name_ext]:
+            entity['elements'][element_name_ext]['annotations'] = {}
+        entity['elements'][element_name_ext]['annotations'][k] = v
+    
 
 def cson_entity_to_tables(table_name_mapping, cson, tables, path, type_name, type_definition,\
     subtable_level = 0, is_table = True, has_pc = False, pk = IdGeneratorUUID1, parent_table_name = None,
@@ -246,7 +268,17 @@ def cson_entity_to_tables(table_name_mapping, cson, tables, path, type_name, typ
         #        table['annotations'] = annotations
         if is_table:
             if subtable_level == 0:
-                annotations = {k:v for k,v in type_definition.items() if k.startswith('@')}
+                dynamic_annotations = {}
+                if '@sap.esh.Configuration' in type_definition:
+                    esh_configuration = type_definition['@sap.esh.Configuration'][0]
+                    #for k,v in esh_configuration.items():
+                    #    if k.startswith('@'):
+                    #        dynamic_annotations[k] = v
+                    dynamic_annotations = {k:v for k,v in esh_configuration.items() if k.startswith('@')}
+                annotations = {k:v for k,v in type_definition.items() if k.startswith('@') and k != '@sap.esh.Configuration'}
+                if dynamic_annotations:
+                    for k,v in dynamic_annotations.items():
+                        annotations[k] = v
                 if annotations:
                     entity['annotations'] = annotations
                 pk_column_name, _ = column_name_mapping.register([type_definition['pk']])
