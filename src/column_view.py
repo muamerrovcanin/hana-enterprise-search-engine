@@ -130,7 +130,7 @@ class ColumnView:
         if self.esh_request and self.esh_request.configurations:
             model_name = self.esh_request.query.scope[0] # todo check this how to get scope
             for esh_config in self.esh_request.configurations:
-                if esh_config.elements[0].model == model_name:# todo check this how to get model from esh_config
+                if esh_config.entity == model_name:# todo check this how to get model from esh_config
                     for property_element in esh_config.elements:
                         if property_element.ref == name_path:
                             for property_annotation in property_element.annotations:
@@ -266,7 +266,7 @@ class ColumnView:
             model_name = self.esh_request.query.scope[0] # todo check this how to get scope
             model_annotations = None
             for esh_config in self.esh_request.configurations:
-                if esh_config.elements[0].model == model_name:# todo check this how to get model from esh_config
+                if esh_config.entity == model_name:# todo check this how to get model from esh_config
                     model_annotations = esh_config.annotations
                     break
             if model_annotations:

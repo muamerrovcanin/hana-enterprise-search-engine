@@ -29,7 +29,7 @@ from constants import (CONCURRENT_CONNECTIONS,
                        TENANT_ID_MAX_LENGTH, TENANT_PREFIX, DBUserType)
 from db_connection_pool import (
     ConnectionPool, Credentials, DBBulkProcessing, DBConnection)
-from esh_client import EshObject, EshRequest, SearchRuleSet
+from esh_client import EshConfigurationElement, EshObject, EshRequest, SearchRuleSet
 from esh_objects import convert_search_rule_set_query_to_string, generate_search_rule_set_query
 from request_mapping import map_request_to_esh_request, map_request_to_rule_set, map_request_to_rule_set_old
 import db_crud as crud
@@ -322,6 +322,7 @@ async def post_model(tenant_id: str, cson=Body(...), simulate: bool = False):
                 handle_error(f'dbapi Error: {e.errorcode}, {e.errortext}')
         return {'detail': 'Model successfully deployed'}
 
+
 @app.post('/v0.1/configuration/{tenant_id}')
 async def post_model(tenant_id: str, cson_config=Body(...), simulate: bool = False):
     """ Configure ESH model (ESH_CONFIG) """
@@ -509,7 +510,8 @@ def get_search_all_suggestion(tenant_id, esh_version, path):
 async def update_eshobject(esh_object: EshObject):
     # async def update_eshobject(esh_object: EshObject, points: Point | LineString):
     # print(esh_object)
-    return {'query': esh_object.to_statement(), 'eshobject': esh_object}
+    return {'top': esh_object.top, 'eshobject': esh_object.dict(exclude_none=True)}
+
 
 
 @app.get('/v1/search/{tenant_id:path}/{esh_version:path}/{path:path}')

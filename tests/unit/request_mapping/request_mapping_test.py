@@ -6,7 +6,7 @@ import request_mapping
 
 class TestRequestMapping(unittest.TestCase):
 
-    def x_test_request_mapping(self):
+    def test_request_mapping(self):
         test_query = esh_client.EshObject()
         test_query.top = 23
         test_query.scope = ["Document"]
@@ -266,11 +266,11 @@ class TestRequestMapping(unittest.TestCase):
     "configurations": [
             {
             "id": "PERSON",
+            "entity": "Person",
             "@Search.searchable": True,
             "elements": [
                 {
                 "ref": [
-                    "Person",
                     "name",
                     "first"
                 ],
@@ -278,7 +278,6 @@ class TestRequestMapping(unittest.TestCase):
                 },
                 {
                 "ref": [
-                    "Person",
                     "name",
                     "last"
                 ],
@@ -288,11 +287,11 @@ class TestRequestMapping(unittest.TestCase):
             },
             {
             "id": "ORGANIZATION",
+            "entity": "Organization",
             "@Search.searchable": True,
             "elements": [
                 {
                 "ref": [
-                    "Organization",
                     "name",
                     "first"
                 ],
@@ -300,7 +299,6 @@ class TestRequestMapping(unittest.TestCase):
                 },
                 {
                 "ref": [
-                    "Organization",
                     "name",
                     "last"
                 ],

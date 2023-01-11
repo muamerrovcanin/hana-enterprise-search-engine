@@ -327,16 +327,21 @@ class AnnotationKeyValue(BaseModel):
     key: str
     value: Any
 class EshConfigurationElement(BaseModel):
-    model: str | None
     ref: list[str] | None #todo check None
     annotations: list[AnnotationKeyValue] | None # todo check None
-    # '@Search.defaultSearchElement': bool | None
+    # @Search.defaultSearchElement: bool | None
+    
+    # (id: "@Search.defaultSearchElement")   # check if this is possible in FastAPI
+    Search_defaultSearchElement: bool | None = Field( default=None, alias='@Search.defaultSearchElement')
 
 class EshConfiguration(BaseModel):
     id: str | None
+    entity: str | None
     elements: list[EshConfigurationElement] | None
     annotations: list[AnnotationKeyValue] | None
     # search_searchable: bool | None
+    Search_searchable: bool | None = Field( default=None, alias='@Search.searchable')
+    EnterpriseSearch_enabled: bool | None = Field( default=None, alias='@EnterpriseSearch.enabled')
 
 class EshRequest(BaseModel):
     parameters: list[Parameter] | None

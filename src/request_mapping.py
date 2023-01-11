@@ -276,13 +276,15 @@ def map_request_to_esh_request(body: any):
                     esh_configuration.annotations.append(AnnotationKeyValue(key=k, value=v))
                 elif k == 'id':
                     esh_configuration.id = v
+                elif k == 'entity':
+                    esh_configuration.entity = v
                 elif k == 'elements':
                     esh_configuration.elements = []
                     for element in configuration['elements']:
-                        esh_element = EshConfigurationElement()
+                        esh_element: EshConfigurationElement = EshConfigurationElement()
                         for ek, ev in element.items():
                             if ek == 'ref':
-                                esh_element.model = ev[0]
+                                # esh_element.model = ev[0]
                                 esh_element.ref = ev[1:]
                             elif ek.startswith('@'):
                                 if not esh_element.annotations:
