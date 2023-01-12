@@ -21,7 +21,7 @@ entity Document {
         image     : LargeString; //image
 
         @sap.esh.isText
-        @UI.Identification                           : [{Position : 30}]
+        @UI.hidden                                   : true
         @EnterpriseSearch.defaultValueSuggestElement : true
         @EndUserText.Label                           : 'Title'
         @Search.fuzzinessThreshold                   : 0.85
@@ -60,11 +60,7 @@ entity Document {
         @EnterpriseSearch.filteringFacet.default     : true
         docType   : String(10);
 
-        @UI.Identification                           : [{
-            Position : 100,
-            url      : 'docURL'
-        }]
+        @UI.hidden                                   : true
         @EndUserText.Label                           : 'Document URL'
-        @Search.defaultSearchElement
         docURL    : String
 }
