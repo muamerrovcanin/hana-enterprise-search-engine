@@ -268,6 +268,8 @@ def map_request_to_esh_request(body: any):
     if 'configurations' in body:
         esh_request.configurations = []
         for configuration in body['configurations']:
+            esh_configuration = EshConfiguration.parse_obj(configuration)
+            '''
             esh_configuration = EshConfiguration()
             for k, v in configuration.items():
                 if k.startswith('@'):
@@ -295,5 +297,6 @@ def map_request_to_esh_request(body: any):
                         esh_configuration.elements.append(esh_element)
 
                     # todo add elements
+            '''
             esh_request.configurations.append(esh_configuration)
     return esh_request

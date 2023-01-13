@@ -29,7 +29,7 @@ from constants import (CONCURRENT_CONNECTIONS,
                        TENANT_ID_MAX_LENGTH, TENANT_PREFIX, DBUserType)
 from db_connection_pool import (
     ConnectionPool, Credentials, DBBulkProcessing, DBConnection)
-from esh_client import EshConfigurationElement, EshObject, EshRequest, SearchRuleSet
+from esh_client import EshConfiguration, EshObject, EshRequest, SearchRuleSet
 from esh_objects import convert_search_rule_set_query_to_string, generate_search_rule_set_query
 from request_mapping import map_request_to_esh_request, map_request_to_rule_set, map_request_to_rule_set_old
 import db_crud as crud
@@ -324,7 +324,7 @@ async def post_model(tenant_id: str, cson=Body(...), simulate: bool = False):
 
 
 @app.post('/v0.1/configuration/{tenant_id}')
-async def post_model(tenant_id: str, cson_config=Body(...), simulate: bool = False):
+async def post_model(tenant_id: str, cson_config: EshRequest):
     """ Configure ESH model (ESH_CONFIG) """
     # TODO mix cson from database and ESH_CONFIG from Body
     tenant_schema_name = get_tenant_schema_name(tenant_id)
@@ -344,11 +344,15 @@ async def post_model(tenant_id: str, cson_config=Body(...), simulate: bool = Fal
             else:
                 handle_error(f'dbapi Error: {e.errorcode}, {e.errortext}')
     if cson_db:
-        for config in cson_config:
+        for config in cson_config.configurations:
+            '''
             for element in config['elements']:
                 entity_name = element['ref'][0]
                 element['ref'].pop(0)
-            cson_db['definitions'][entity_name]['@sap.esh.Configuration'] = [config]
+            '''
+            if not config.entity:
+                raise Exception("missing mandatory parameter entity in the configuration")
+            cson_db['definitions'][config.entity]['@sap.esh.Configuration'] = [config]
         print("ok")
 
 
@@ -356,8 +360,8 @@ async def post_model(tenant_id: str, cson_config=Body(...), simulate: bool = Fal
     errors = consistency_check.check_cson(cson_db)
     if errors:
         raise HTTPException(422, errors)
-    if simulate:
-        return {'detail': 'Model is consistent'}
+    # if simulate:
+    #    return {'detail': 'Model is consistent'}
     else:
         created_at = datetime.now()
         try:

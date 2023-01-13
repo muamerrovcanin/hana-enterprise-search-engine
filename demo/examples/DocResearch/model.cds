@@ -4,11 +4,11 @@ using {sap.esh.Identifier} from '../../../model/esh';
 @EnterpriseSearch.enabled
 @EndUserText.Label : 'Document'
 @EnterpriseSearchHana.passThroughAllAnnotations
-@UI.headerInfo.typeName: 'Document'
-@UI.headerInfo.typeNamePlural: 'Documents'
-@UI.headerInfo: {
-          title: {
-            value: 'title',
+@UI.HeaderInfo.TypeName: 'Document'
+@UI.HeaderInfo.TypeNamePlural: 'Documents'
+@UI.HeaderInfo: {
+          Title: {
+            Value: 'title',
             url: 'docURL'
           }
         }
@@ -21,7 +21,7 @@ entity Document {
         image     : LargeString; //image
 
         @sap.esh.isText
-        @UI.hidden                                   : true
+        @UI.Hidden                                   : true
         @EnterpriseSearch.defaultValueSuggestElement : true
         @EndUserText.Label                           : 'Title'
         @Search.fuzzinessThreshold                   : 0.85
@@ -60,7 +60,7 @@ entity Document {
         @EnterpriseSearch.filteringFacet.default     : true
         docType   : String(10);
 
-        @UI.hidden                                   : true
+        @UI.Hidden                                   : true
         @EndUserText.Label                           : 'Document URL'
         docURL    : String
 }
