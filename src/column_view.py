@@ -124,15 +124,15 @@ class ColumnView:
                 if esh_config.id == model_name:# todo check this how to get model from esh_config
                     for property_element in esh_config.elements:
                         if property_element.ref == name_path:
-                            serialized_annotations = get_annotations_serialized(esh_config.dict(exclude_none=True, by_alias=True))
+                            serialized_annotations = get_annotations_serialized(property_element.dict(exclude_none=True, by_alias=True))
                             for k,v in serialized_annotations.items():
                                 if k.startswith('@') and k not in COLUMN_ANNOTATIONS:
                                     col_conf[k] = v
                             # col_conf |= {k:v for k,v in esh_config.dict(exclude_none=True, by_alias=True).items() if k.startswith('@') and k not in COLUMN_ANNOTATIONS}
                             #for property_annotation in property_element.annotations:
                             #    col_conf[property_annotation.key] = property_annotation.value
-                        break
-                    break
+                            break
+                    # break
         else:
             if annotations:
                 self._cleanup_labels(annotations)
