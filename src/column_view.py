@@ -2,7 +2,8 @@
 from copy import deepcopy
 from esh_client import EshRequest
 from name_mapping import NameMapping
-from constants import ENTITY_PREFIX, VIEW_PREFIX
+from constants import COLUMN_ANNOTATIONS, ENTITY_PREFIX, VIEW_PREFIX
+from query_mapping import get_annotations_serialized
 
 _ESH_CONFIG_TEMPLATE = {
     'uri': '~/$metadata/EntitySets',
@@ -31,7 +32,7 @@ def sequence_int(i = 10, step = 10):
 
 class ColumnView:
     """Column view definition"""
-    def __init__(self, mapping, anchor_entity_name, schema_name, default_annotations, esh_request: EshRequest | None = None) -> None:
+    def __init__(self, mapping, anchor_entity_name, schema_name, default_annotations, esh_request: EshRequest | None = None, dynamic_configuration_id: str | None = None) -> None:
         self.mapping = mapping
         self.anchor_entity = mapping['entities'][anchor_entity_name]
         self.schema_name = schema_name
@@ -46,6 +47,13 @@ class ColumnView:
         self.join_condition_id_gen = sequence(1, 'JC', 3)
         self.ui_position_gen = sequence_int()
         self.esh_request = esh_request
+        self.dynamic_configuration_id = None
+        if esh_request and esh_request.configurations and esh_request.query:
+            self.dynamic_configuration_id = esh_request.query.scope[0]
+            self.default_annotations = False
+        if dynamic_configuration_id:
+            self.dynamic_configuration_id = dynamic_configuration_id
+            self.default_annotations = False
 
     def by_selector(self, view_name, odata_name, selector):
         self.view_name = view_name
@@ -110,33 +118,39 @@ class ColumnView:
             self._get_join_index_name(join_index), table_column_name, join_path_id, name_path))
         # ESH config
         col_conf = {'Name': view_column_name}
-        if annotations:
-            self._cleanup_labels(annotations)
-            col_conf |= annotations
-        is_enteprise_search_key = \
-            not join_path_id and table_column_name == self.mapping['tables'][table_name]['pk']
-        if is_enteprise_search_key:
-            col_conf['@EnterpriseSearch.key'] = True
-            col_conf['@UI.hidden'] = True
-        elif self.default_annotations:
-            column = self.mapping['tables'][table_name]['columns'][table_column_name]
-            if column['type'] in ['BLOB', 'CLOB', 'NCLOB']:
-                if 'annotations' in column and '@sap.esh.isText' in column['annotations'] and column['annotations']['@sap.esh.isText']:
-                    col_conf['@Search.defaultSearchElement'] = True
-            elif column['type'] not in ['ST_POINT', 'ST_GEOMETRY']:
-                col_conf['@Search.defaultSearchElement'] = True
-            if not join_path_id and not ('@UI.hidden' in col_conf and col_conf['@UI.hidden']):
-                col_conf['@UI.identification'] = [{'position': next(self.ui_position_gen)}]
         if self.esh_request and self.esh_request.configurations:
             model_name = self.esh_request.query.scope[0] # todo check this how to get scope
             for esh_config in self.esh_request.configurations:
-                if esh_config.entity == model_name:# todo check this how to get model from esh_config
+                if esh_config.id == model_name:# todo check this how to get model from esh_config
                     for property_element in esh_config.elements:
                         if property_element.ref == name_path:
-                            for property_annotation in property_element.annotations:
-                                col_conf[property_annotation.key] = property_annotation.value
+                            serialized_annotations = get_annotations_serialized(esh_config.dict(exclude_none=True, by_alias=True))
+                            for k,v in serialized_annotations.items():
+                                if k.startswith('@') and k not in COLUMN_ANNOTATIONS:
+                                    col_conf[k] = v
+                            # col_conf |= {k:v for k,v in esh_config.dict(exclude_none=True, by_alias=True).items() if k.startswith('@') and k not in COLUMN_ANNOTATIONS}
+                            #for property_annotation in property_element.annotations:
+                            #    col_conf[property_annotation.key] = property_annotation.value
                         break
                     break
+        else:
+            if annotations:
+                self._cleanup_labels(annotations)
+                col_conf |= annotations
+            is_enteprise_search_key = \
+                not join_path_id and table_column_name == self.mapping['tables'][table_name]['pk']
+            if is_enteprise_search_key:
+                col_conf['@EnterpriseSearch.key'] = True
+                col_conf['@UI.hidden'] = True
+            elif self.default_annotations:
+                column = self.mapping['tables'][table_name]['columns'][table_column_name]
+                if column['type'] in ['BLOB', 'CLOB', 'NCLOB']:
+                    if 'annotations' in column and '@sap.esh.isText' in column['annotations'] and column['annotations']['@sap.esh.isText']:
+                        col_conf['@Search.defaultSearchElement'] = True
+                elif column['type'] not in ['ST_POINT', 'ST_GEOMETRY']:
+                    col_conf['@Search.defaultSearchElement'] = True
+                if not join_path_id and not ('@UI.hidden' in col_conf and col_conf['@UI.hidden']):
+                    col_conf['@UI.identification'] = [{'position': next(self.ui_position_gen)}]
         self.esh_config['content']['EntityType']['Properties'].append(col_conf)
 
     def _add_join(self, join_path_id, source_join_index, target_entity_pos\
@@ -164,6 +178,9 @@ class ColumnView:
         else:
             ep = entity_pos
         annotations = ep['annotations'] if 'annotations' in ep else {}
+        if 'dynamic_annotations' in entity_pos:
+            annotations = entity_pos['dynamic_annotations'][self.dynamic_configuration_id]
+
         self._add_view_column(join_index, join_path_id,\
             name_path, ep['column_name'], annotations, selector_pos)
 
@@ -262,16 +279,20 @@ class ColumnView:
             annotations = self.anchor_entity['annotations']
             self._cleanup_labels(annotations)
             self.esh_config['content']['EntityType'] |= annotations
+        if 'dynamic_annotations' in self.anchor_entity:
+            if self.dynamic_configuration_id in self.anchor_entity['dynamic_annotations']:
+                self.esh_config['content']['EntityType'] |= self.anchor_entity['dynamic_annotations'][self.dynamic_configuration_id]
         if self.esh_request and self.esh_request.configurations:
             model_name = self.esh_request.query.scope[0] # todo check this how to get scope
             model_annotations = None
             for esh_config in self.esh_request.configurations:
-                if esh_config.entity == model_name:# todo check this how to get model from esh_config
-                    model_annotations = esh_config.annotations
+                if esh_config.id == model_name:# todo check this how to get model from esh_config
+                    serialized_annotations = get_annotations_serialized(esh_config.dict(exclude_none=True, by_alias=True))
+                    model_annotations = {k:v for k,v in serialized_annotations.items() if k.startswith('@') and k not in COLUMN_ANNOTATIONS}
                     break
             if model_annotations:
                 for model_annotation in model_annotations:
-                    self.esh_config['content']['EntityType'][model_annotation.key] = model_annotation.value
+                    self.esh_config['content']['EntityType'][model_annotation] = model_annotations[model_annotation]
         self.esh_config['content']['Fullname'] = f'{self.schema_name}/{self.view_name}'
         self.esh_config['content']['EntityType']['@EnterpriseSearchHana.identifier'] = self.odata_name
         self._traverse(self.selector, self.anchor_entity, [], self._table(anchor_table_name))

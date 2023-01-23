@@ -1,4 +1,5 @@
 """Classes to define a query"""
+from decimal import Decimal
 from enum import Enum
 from typing import Any, List, Literal, Annotated, Union
 from pydantic import BaseModel, Field
@@ -43,13 +44,13 @@ class IntersectsOperator(BaseModel):
     type: Literal['IntersectsOperator'] = 'IntersectsOperator'
     id: int | None
  
-ExpressionValue = Union[Annotated[Union["UnaryExpression", \
+ExpressionValue = Annotated[Union["UnaryExpression", \
     "Expression", "Comparison", "WithinOperator", "CoveredByOperator", \
     "IntersectsOperator", "Point", "LineString", "CircularString", "Polygon", \
     "MultiPoint", "MultiLineString", "MultiPolygon", "GeometryCollection", "NumberValue", \
     "BooleanValue", "StringValue",  "Property",  "MultiValues", "Filter", "FilterWF", \
     "Boost", "RangeValue", "DateValue"], \
-    Field(discriminator="type")], str]
+    Field(discriminator="type")]
 
 class NonMatchingTokens(str, Enum):
    max = "max"
@@ -178,9 +179,9 @@ class RangeValue(BaseModel):
     excludeEnd: bool | None
 class Comparison(BaseModel):
     type: Literal['Comparison'] = 'Comparison'
-    property: str | ExpressionValue
+    property: ExpressionValue
     operator: str |  WithinOperator | CoveredByOperator | IntersectsOperator
-    value: str | ExpressionValue | None
+    value: ExpressionValue | None
 
 class Expression(BaseModel):
     type: Literal['Expression'] = 'Expression'
@@ -323,25 +324,118 @@ class Parameter(BaseModel):
 class SearchRuleSet(BaseModel):
     query: Query | None
 
-class AnnotationKeyValue(BaseModel):
-    key: str
-    value: Any
+class AnnotationUIIdentificationImportance(str, Enum):
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+
+class AnnotationUIIdentificationType(str, Enum):
+    FOR_ACTION = "FOR_ACTION"
+    AS_ADDRESS = "AS_ADDRESS"
+    AS_CONTACT = "AS_CONTACT"
+    AS_DATAPOINT = "AS_DATAPOINT"
+    AS_CHART = "AS_CHART"
+    FOR_INTENT_BASED_NAVIGATION = "FOR_INTENT_BASED_NAVIGATION"
+    STANDARD = "sfgsfgsfdg"
+    WITH_INTENT_BASED_NAVIGATION = "WITH_INTENT_BASED_NAVIGATION"
+    WITH_NAVIGATION_PATH = "WITH_NAVIGATION_PATH"
+    WITH_URL = "WITH_URL"
+
+class AnnotationUIIdentificationCriticalityRepresentation(str, Enum):
+    WITH_ICON = "WITH_ICON"
+    WITHOUT_ICON = "WITHOUT_ICON"
+
+class AnnotationUIIdentificationInvocationGrouping(str, Enum):
+    ISOLATED = "ISOLATED"
+    CHANGE_SET = "CHANGE_SET"
+class AnnotationUIIdentification(BaseModel):
+    label: str | None
+    iconUrl: str | None
+    position: int | None
+    importance: AnnotationUIIdentificationImportance | None
+    exclude: bool | None
+    type: AnnotationUIIdentificationType | None
+    criticality: str | None
+    criticalityRepresentation: AnnotationUIIdentificationCriticalityRepresentation | None
+    dataAction: str | None
+    invocationGrouping: AnnotationUIIdentificationInvocationGrouping | None
+    semanticObjectAction: str | None
+    value: str | None
+    valueQualifier: str | None
+    targetElement: str | None
+    url: str | None
+
+class AnnotationUIHeaderInfo(BaseModel):
+    typeName: str | None
+    typeNamePlural: str | None
+    description: str | None
+    imageUrl: str | None
+    imageData: str | None
+
+class AnnotationUI(BaseModel):
+    hidden: bool | None
+    headerInfo: AnnotationUIHeaderInfo | None
+    identification: list[AnnotationUIIdentification] | None
+
+    class Config:
+        extra = 'forbid'
+
+class AnnotationSearch(BaseModel):
+    searchable: bool | None
+    defaultSearchElement: bool | None
+    fuzzinessThreshold: float | None
+    class Config:
+        extra = 'forbid'
+
+class AnnotationEnterpriseSearchFilteringFacet(BaseModel):
+    default: bool | None
+class AnnotationEnterpriseSearch(BaseModel):
+    key: bool | None
+    enabled: bool | None
+    filteringFacet: AnnotationEnterpriseSearchFilteringFacet | None
+    searchOptions: str | None
+    class Config:
+        extra = 'forbid'
+
+class AnnotationSapCommon(BaseModel):
+    Label: str | None
+
+class AnnotationSap(BaseModel):
+    Common: AnnotationSapCommon | None
+
+    class Config:
+        extra = 'forbid'
+
+
+class AnnotationEndUserText(BaseModel):
+    label: str | None
+
+    class Config:
+        extra = 'forbid'
+
 class EshConfigurationElement(BaseModel):
     ref: list[str] | None #todo check None
-    Search_defaultSearchElement: bool | None = Field( default=None, alias='@Search.defaultSearchElement')
-    EnterpriseSearch_filteringFacet_default: bool | None = Field( default=None, alias='@EnterpriseSearch.filteringFacet.default')
+    
+    annotation_ui: AnnotationUI | None = Field( default=None, alias='@UI')
+    annotation_search: AnnotationSearch | None = Field( default=None, alias='@Search')
+    annotation_enterprise_search: AnnotationEnterpriseSearch | None = Field( default=None, alias='@EnterpriseSearch')
+    annotation_sap: AnnotationSap | None = Field( default=None, alias='@SAP')
+    annotation_end_user_text: AnnotationEndUserText | None = Field( default=None, alias='@EndUserText')
+
+    class Config:
+        extra = 'forbid'
+
 
 class EshConfiguration(BaseModel):
     id: str | None
     entity: str | None
     elements: list[EshConfigurationElement] | None
-    Search_searchable: bool | None = Field( default=None, alias='@Search.searchable')
-    EnterpriseSearch_enabled: bool | None = Field( default=None, alias='@EnterpriseSearch.enabled')
-    UI_headerInfo_typeName: str | None = Field( default=None, alias='@UI.headerInfo.typeName')
-    UI_headerInfo_typeNamePlural: str | None = Field( default=None, alias='@UI.headerInfo.typeNamePlural')
+    annotation_ui: AnnotationUI | None = Field( default=None, alias='@UI')
+    annotation_search: AnnotationSearch | None = Field( default=None, alias='@Search')
+    annotation_enterprise_search: AnnotationEnterpriseSearch | None = Field( default=None, alias='@EnterpriseSearch')
+    annotation_sap: AnnotationSap | None = Field( default=None, alias='@SAP')
+    annotation_end_user_text: str | None = Field( default=None, alias='@EndUserText')
     
-
-
 
 class EshRequest(BaseModel):
     type: Literal['EshRequest'] = 'EshRequest'
@@ -353,5 +447,8 @@ class EshRequest(BaseModel):
 if __name__ == '__main__':
     # a = EshConfigurationElement(ref=["a"], b="SA", annotations={'@a.b':'s'})
     # print(a)
-    b = EshRequest(query=EshObject(top=2), configurations=[{"id": "PERSON", "@Search.searchable": 'true'}])
-    print(b)
+    import json
+    b = EshRequest(query=EshObject(top=2), configurations=[{"id": "PERSON", "entity": "Person", "@Search": {"searchable": True}}])
+    #print(b)
+    #print(b.dict(exclude_none=True, by_alias=True))
+    print(json.dumps(b.dict(exclude_none=True, by_alias=True), indent=4))

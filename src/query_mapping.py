@@ -70,3 +70,36 @@ def map_query(query, pathes):
         _map_property(query.select, pathes)
     if query.searchQueryFilter:
         _map_property(query.searchQueryFilter.items, pathes)
+
+def get_annotations_serialized(annotation: dict, path: list[str] = []):
+    # IN { "@Search": { "enabled": true}}
+    # OUT { "@Search.enabled": true}
+    serialized_annotations = {}
+    if annotation:
+        for k, v in annotation.items():
+            if k.startswith("@") or len(path) > 0:
+                if isinstance(v, dict):
+                    serialized_annotations = serialized_annotations | get_annotations_serialized(v, path + [k])
+                else:
+                    serialized_annotations[".".join(path + [k])] = v
+    return serialized_annotations
+
+def get_annotations_deserialized(annotation: dict) -> dict:
+    # IN { "@Search.enabled": true}
+    # OUT { "@Search": { "enabled": true}}
+    deserialized_annotations = {}
+    if annotation:
+        for k, v in annotation.items():
+            path = k.split(".")
+            active_object = None
+            for i in range(len(path)):
+                if i == 0:
+                    active_object = deserialized_annotations
+                else:
+                    active_object = active_object[path[i-1]]
+                if i == len(path) - 1:
+                    active_object[path[i]] = v
+                else:
+                    if path[i] not in active_object:
+                        active_object[path[i]] = {}
+    return deserialized_annotations

@@ -118,6 +118,17 @@ class TestStringMethods(unittest.TestCase):
 						"@Search.fuzzinessThreshold": 0.85,
 						"@Search.defaultSearchElement": true,
 						"@SAP.Common.Label": "Title"
+					},
+					"dynamic_annotations": {
+						"PERSON": {
+							"@Search.fuzzinessThreshold": 0.73,
+							"@EnterpriseSearch.filteringFacet.default": true,
+							"@UI.Identification": [
+								{
+								"Position": 40
+								}
+							]
+						}
 					}
 				},
 				"author": {
@@ -188,6 +199,14 @@ class TestStringMethods(unittest.TestCase):
 				"@EnterpriseSearchHana.passThroughAllAnnotations": true,
 				"@SAP.Common.Label": "Document"
 			},
+			"dynamic_annotations": {
+				"PERSON": {
+				"@Search.searchable": true,
+				"@EnterpriseSearch.enabled": true,
+				"@UI.headerInfo.typeName": "Person",
+				"@UI.headerInfo.typeNamePlural": "Perons"
+				}
+			},
 			"table_name": "ENTITY/DOCUMENT"
 		}
 	}
@@ -196,8 +215,10 @@ class TestStringMethods(unittest.TestCase):
 
 
     def test_phrase(self):
-        cv = db_search.ColumnView(json.loads(self.mapping_rule_set_definition), "Document", "__SCHEMA_PLACEHOLDER__", True)
+        cv = db_search.ColumnView(json.loads(self.mapping_rule_set_definition), "Document", "__SCHEMA_PLACEHOLDER__", True, dynamic_configuration_id='PERSON')
         cv.by_default()
+        cv.odata_name = "MYODATA"
+        cv.view_name = "MYODATATEST"
         view_ddl, esh_config = cv.data_definition()
         # cv = db_search._get_column_view(json.loads(self.mapping_rule_set_definition), "example.Person", "PLCSCHEMA", ["firstName"])
         # print(cv.column_name_by_path(["firstName"]))

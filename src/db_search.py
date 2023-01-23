@@ -73,7 +73,7 @@ def perform_bulk_search(esh_version, schema_name, esh_query):
         return [_cleanse_output(json.loads(w[0])) for w in db.cur.fetchall()]
 
 
-async def search_query(schema_name, mapping, esh_version, queries, crud):
+async def search_query(schema_name, mapping, esh_version, queries, crud, esh_request: EshRequest | None = None):
     dynamic_views = {}
     odata_map = {}
     esh_queries = []
@@ -90,26 +90,47 @@ async def search_query(schema_name, mapping, esh_version, queries, crud):
             scopes = []
         esh_scopes = []
         for scope in scopes:
-            if not scope in mapping['entities']:
+            esh_scope = scope
+            dynamic_configuration_id = None
+            if esh_request.configurations:
+                for config in esh_request.configurations:
+                    if scope == config.id:
+                        dynamic_configuration_id = esh_scope
+                        esh_scope = config.entity
+                        break
+            else:
+                for entity, entity_details in mapping['entities'].items():
+                    if 'dynamic_annotations' in entity_details:
+                        if esh_scope in entity_details['dynamic_annotations']:
+                            dynamic_configuration_id = esh_scope
+                            esh_scope = entity
+                            break
+
+            if not esh_scope in mapping['entities']:
                 raise SearchException(f'unknown entity {scope}')
                 #handle_error(f'unknown entity {scope}', 400)
             is_cross_entity = False
             for path in pathes:
                 is_valid, is_cross = convert.check_path(
-                    mapping, mapping['entities'][scope], path)
+                    mapping, mapping['entities'][esh_scope], path)
                 if not is_valid:
-                    raise SearchException(f'invalid path {path} for entity {scope}')
+                    raise SearchException(f'invalid path {path} for entity {esh_scope}')
                     #handle_error(f'invalid path {path} for entity {scope}', 400)
                 is_cross_entity = is_cross_entity or is_cross
             # if is_cross_entity:
                 # ToDo: support free-style
-            cv = _get_column_view(mapping, scope, schema_name, pathes.keys())
+            cv = _get_column_view(mapping, esh_scope, schema_name, pathes.keys(), esh_request)
+            # if esh_request.configurations:
+            #   cv.dynamic_configuration_id = esh_scope
+            if dynamic_configuration_id is not None:
+               cv.dynamic_configuration_id = dynamic_configuration_id
+               cv.default_annotations = False
             esh_scopes.append(cv.odata_name)
             view_ddl, esh_config = cv.data_definition()
             configurations.append(esh_config['content'])
             view_map = {k: v for k, _, _, _, v in cv.view_attribute}
             odata_map['$metadata#' +
-                      cv.odata_name] = {'entity_type': scope, 'view_map': view_map}
+                      cv.odata_name] = {'entity_type': esh_scope, 'view_map': view_map}
             dynamic_views[cv.view_name] = {'ddl': view_ddl}
             # else:
             #    esh_scopes.append(mapping['entities'][scope]['table_name'][len(ENTITY_PREFIX):])
@@ -134,6 +155,7 @@ async def search_query(schema_name, mapping, esh_version, queries, crud):
     with DBConnection(glob.connection_pools[DBUserType.DATA_READ]) as db:
         params = (json.dumps(esh_queries), None)
         db.cur.callproc('esh_search', params)
+        print(json.dumps(esh_queries, indent=4))
         search_results = [json.loads(w[0]) for w in db.cur.fetchall()]
     if dynamic_views:
         with DBConnection(glob.connection_pools[DBUserType.SCHEMA_MODIFY]) as db:
@@ -209,8 +231,8 @@ async def search_dynamic_esh_query(schema_name, mapping, esh_version, esh_reques
             scopes = []
         esh_scopes = []
         for scope in scopes:
-            if not scope in mapping['entities']:
-                raise SearchException(f'unknown entity {scope}')
+            # TODO if not scope in mapping['entities']:
+            # TODO    raise SearchException(f'unknown entity {scope}')
                 #handle_error(f'unknown entity {scope}', 400)
             is_cross_entity = False
             for path in pathes:

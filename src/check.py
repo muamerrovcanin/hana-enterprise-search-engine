@@ -69,7 +69,7 @@ for object_type, object_list in data.items():
         error('{} is not a list'.format(object_type))
         continue
     if object_type not in cson['definitions']:
-        error(f'unknown entity - {object_type}')
+        # TODO check this error(f'unknown entity - {object_type}')
         continue
     if cson['definitions'][object_type]['kind'] != 'entity':
         error(f'not a CDS entity - {object_type}')

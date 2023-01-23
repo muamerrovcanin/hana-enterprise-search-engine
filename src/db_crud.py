@@ -4,6 +4,7 @@ import base64
 from hdbcli.dbapi import Error as HDBException
 
 from db_connection_pool import (DBBulkProcessing, DBConnection)
+from esh_client import EshRequest
 import server_globals as glob
 from constants import (CONCURRENT_CONNECTIONS, TYPES_B64_ENCODE, TYPES_SPATIAL,
                        DBUserType)
@@ -44,11 +45,12 @@ def add_value(column, obj, path, value):
 
 class CRUD():
     """ DB-Operations for Create, Cread, Update, Delete """
-    def __init__(self,ctx) -> None:
+    def __init__(self,ctx, esh_request: EshRequest | None = None) -> None:
         self.mapping = ctx['mapping']
         self.schema_name = ctx['schema_name']
         #self.tenant_id = ctx['tenant_id']
         self.id_generator = ctx['id_generator']
+        self.esh_request = esh_request
 
     def _extract_object_keys(self, objects):
         obj_key_idx = {}
@@ -370,6 +372,10 @@ class CRUD():
         with DBConnection(glob.connection_pools[DBUserType.DATA_READ]) as db:
             response = {}
             for object_type, obj_list in objects.items():
+                if self.esh_request and self.esh_request.query and self.esh_request.configurations:
+                    for config in self.esh_request.configurations:
+                        if config.id == object_type:
+                            object_type = config.entity
                 if not isinstance(obj_list, list):
                     raise CrudException('provide list of objects per object type')
                 if object_type not in self.mapping['entities']:

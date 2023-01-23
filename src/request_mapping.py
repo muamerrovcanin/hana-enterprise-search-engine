@@ -1,7 +1,7 @@
 from constants import ENTITY_PREFIX, VIEW_PREFIX
-from esh_client import AnnotationKeyValue, AttributeView, Column, EshConfiguration, EshConfigurationElement, EshObject, EshRequest, Parameter, Query, ResultSetColumn, Rule, RuleSet, SearchRuleSet
+from esh_client import  AttributeView, Column, EshConfiguration, EshObject, EshRequest, Parameter, Query, ResultSetColumn, Rule, RuleSet, SearchRuleSet
 import esh_objects
-import json
+
 class Constants(object):
     entities = 'entities'
     views = 'views'

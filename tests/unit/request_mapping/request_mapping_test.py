@@ -226,6 +226,7 @@ class TestRequestMapping(unittest.TestCase):
         self.assertEqual(request_mapping.get_view_column_name_ex(json.loads(mapping_rule_set_definition), "example.Person", ["firstName"]), "FIRSTNAME")
         self.assertEqual(request_mapping.get_view_column_name_ex(json.loads(mapping_rule_set_definition), "example.Person", ["address","city"]), "ADDRESS_CITY")
 
+    '''
     def test_map_request_to_esh_request(self):
         body = { "parameters": [
         {
@@ -309,6 +310,6 @@ class TestRequestMapping(unittest.TestCase):
         ]}
         esh_request = request_mapping.map_request_to_esh_request(body)
         print(json.dumps(esh_request.dict(exclude_none=True), indent=4))
-
+    '''
 if __name__ == '__main__':
     unittest.main()

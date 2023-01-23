@@ -344,6 +344,9 @@ async def post_model(tenant_id: str, cson_config: EshRequest):
             else:
                 handle_error(f'dbapi Error: {e.errorcode}, {e.errortext}')
     if cson_db:
+        for entity in cson_db['definitions']:
+            if '@sap.esh.Configuration' in cson_db['definitions'][entity]:
+                del cson_db['definitions'][entity]['@sap.esh.Configuration']
         for config in cson_config.configurations:
             '''
             for element in config['elements']:
@@ -352,8 +355,9 @@ async def post_model(tenant_id: str, cson_config: EshRequest):
             '''
             if not config.entity:
                 raise Exception("missing mandatory parameter entity in the configuration")
-            cson_db['definitions'][config.entity]['@sap.esh.Configuration'] = [config]
-        print("ok")
+            if '@sap.esh.Configuration' not in cson_db['definitions'][config.entity]:
+                cson_db['definitions'][config.entity]['@sap.esh.Configuration'] = []
+            cson_db['definitions'][config.entity]['@sap.esh.Configuration'].append(config.dict(exclude_none=True, by_alias=True))
 
 
 
@@ -542,12 +546,12 @@ def post_search(tenant_id, esh_version, body=Body(...)):
         handle_error(str(e), 500)
 
 @app.post('/v0.3/query/{tenant_id}/{esh_version:path}')
-async def query_v03(tenant_id, esh_version, body=Body(...)):
+async def query_v03(tenant_id, esh_version, esh_request: EshRequest):
     schema_name = get_tenant_schema_name(tenant_id)
     mapping = get_mapping(tenant_id, schema_name)
     try:
         c = crud.CRUD(get_ctx(tenant_id))
-        esh_request = map_request_to_esh_request(body)
+        # esh_request = map_request_to_esh_request(body) # body=Body(...)
         return (await search.search_dynamic_esh_query(schema_name, mapping, esh_version, esh_request, c))[0]
         # 
         # return esh_request.dict(exclude_none=True)
@@ -557,12 +561,12 @@ async def query_v03(tenant_id, esh_version, body=Body(...)):
         handle_error(str(e), 500)
 
 @app.post('/v0.2/query/{tenant_id}/{esh_version:path}')
-async def query_v02(tenant_id, esh_version, query: EshRequest):
+async def query_v02(tenant_id, esh_version, esh_request: EshRequest):
     schema_name = get_tenant_schema_name(tenant_id)
     mapping = get_mapping(tenant_id, schema_name)
     try:
-        c = crud.CRUD(get_ctx(tenant_id))
-        return (await search.search_query(schema_name, mapping, esh_version, [query.query], c))[0]
+        c = crud.CRUD(get_ctx(tenant_id), esh_request)
+        return (await search.search_query(schema_name, mapping, esh_version, [esh_request.query], c, esh_request = esh_request))[0]
     except search.SearchException as e:
         handle_error(str(e), 400)
     except HDBException:
