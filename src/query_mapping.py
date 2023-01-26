@@ -103,3 +103,31 @@ def get_annotations_deserialized(annotation: dict) -> dict:
                     if path[i] not in active_object:
                         active_object[path[i]] = {}
     return deserialized_annotations
+
+def get_nested_object(data: dict, path: list[str]):
+    local_data = data
+    for path_element in path:
+        if path_element in local_data:
+            local_data = local_data[path_element]
+        else:
+            return None 
+    return local_data
+
+def set_nested_property(data: dict, path: list[str], value):
+    local_data = data
+    new_data = None
+    for idx, path_element in enumerate(path):
+        if idx < len(path) - 1:
+            if path_element in local_data:
+                local_data = local_data[path_element]
+            else:
+                new_data = data
+                for j in range(idx):
+                    new_data = new_data[path[j]]
+                new_data[path_element] = {}
+                local_data = new_data[path_element]
+                
+
+        else:
+            local_data[path_element] = value 
+    return data

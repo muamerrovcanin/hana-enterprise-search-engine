@@ -3,7 +3,7 @@ from copy import deepcopy
 from esh_client import EshRequest
 from name_mapping import NameMapping
 from constants import COLUMN_ANNOTATIONS, ENTITY_PREFIX, VIEW_PREFIX
-from query_mapping import get_annotations_serialized
+from query_mapping import get_annotations_serialized, get_nested_object, set_nested_property
 
 _ESH_CONFIG_TEMPLATE = {
     'uri': '~/$metadata/EntitySets',
@@ -11,10 +11,12 @@ _ESH_CONFIG_TEMPLATE = {
     'content': {
         'Fullname': '',
         'EntityType': {
-            '@EnterpriseSearch.enabled': True,
-            '@Search.searchable': True,
-            '@EnterpriseSearchHana.identifier': None,
-            '@EnterpriseSearchHana.passThroughAllAnnotations': True,
+            '@EnterpriseSearch': { 'enabled': True },
+            '@Search': {'searchable': True},
+            '@EnterpriseSearchHana': {
+                'identifier': None,
+                'passThroughAllAnnotations': True
+            },
             'Properties': []}}}
 
 def sequence(i = 0, prefix = '', fill = 3):
@@ -140,17 +142,20 @@ class ColumnView:
             is_enteprise_search_key = \
                 not join_path_id and table_column_name == self.mapping['tables'][table_name]['pk']
             if is_enteprise_search_key:
-                col_conf['@EnterpriseSearch.key'] = True
-                col_conf['@UI.hidden'] = True
+                set_nested_property(col_conf, ['@EnterpriseSearch', 'key'], True)
+                set_nested_property(col_conf, ['@UI', 'hidden'], True)
             elif self.default_annotations:
                 column = self.mapping['tables'][table_name]['columns'][table_column_name]
                 if column['type'] in ['BLOB', 'CLOB', 'NCLOB']:
                     if 'annotations' in column and '@sap.esh.isText' in column['annotations'] and column['annotations']['@sap.esh.isText']:
-                        col_conf['@Search.defaultSearchElement'] = True
+                        #col_conf['@Search.defaultSearchElement'] = True
+                        set_nested_property(col_conf, ['@Search', 'defaultSearchElement'], True)
                 elif column['type'] not in ['ST_POINT', 'ST_GEOMETRY']:
-                    col_conf['@Search.defaultSearchElement'] = True
+                    #col_conf['@Search.defaultSearchElement'] = True
+                    set_nested_property(col_conf, ['@Search', 'defaultSearchElement'], True)
                 if not join_path_id and not ('@UI.hidden' in col_conf and col_conf['@UI.hidden']):
-                    col_conf['@UI.identification'] = [{'position': next(self.ui_position_gen)}]
+                    #col_conf['@UI.identification'] = [{'position': next(self.ui_position_gen)}]
+                    set_nested_property(col_conf, ['@UI', 'identification'], True)
         self.esh_config['content']['EntityType']['Properties'].append(col_conf)
 
     def _add_join(self, join_path_id, source_join_index, target_entity_pos\
@@ -285,8 +290,12 @@ class ColumnView:
         if self.esh_request and self.esh_request.configurations:
             model_name = self.esh_request.query.scope[0] # todo check this how to get scope
             model_annotations = None
+            delete_annotation_keys = []
             for esh_config in self.esh_request.configurations:
                 if esh_config.id == model_name:# todo check this how to get model from esh_config
+                    for annotation_key in esh_config.dict(exclude_none=True, by_alias=True):
+                        if annotation_key.startswith('@') and annotation_key not in COLUMN_ANNOTATIONS:
+                            delete_annotation_keys.append(annotation_key)
                     serialized_annotations = get_annotations_serialized(esh_config.dict(exclude_none=True, by_alias=True))
                     model_annotations = {k:v for k,v in serialized_annotations.items() if k.startswith('@') and k not in COLUMN_ANNOTATIONS}
                     break
@@ -294,18 +303,26 @@ class ColumnView:
                 for model_annotation in model_annotations:
                     self.esh_config['content']['EntityType'][model_annotation] = model_annotations[model_annotation]
         self.esh_config['content']['Fullname'] = f'{self.schema_name}/{self.view_name}'
-        self.esh_config['content']['EntityType']['@EnterpriseSearchHana.identifier'] = self.odata_name
+        # self.esh_config['content']['EntityType']['@EnterpriseSearchHana.identifier'] = self.odata_name
+        set_nested_property(self.esh_config['content']['EntityType'], ['@EnterpriseSearchHana', 'identifier'], self.odata_name)
         self._traverse(self.selector, self.anchor_entity, [], self._table(anchor_table_name))
 
         has_default_search_element = False
         for prop in self.esh_config['content']['EntityType']['Properties']:
-            if '@Search.defaultSearchElement' in prop:
+            search_default_search_element = get_nested_object(prop, ['@Search', 'defaultSearchElement'])
+            if search_default_search_element is not None:
                 has_default_search_element = True
                 break
         if not has_default_search_element:
             for prop in self.esh_config['content']['EntityType']['Properties']:
-                if '@EnterpriseSearch.key' in prop and prop['@EnterpriseSearch.key']:
-                    prop['@Search.defaultSearchElement'] = True
+                enterprise_search_key = get_nested_object(prop, ['@EnterpriseSearch', 'key'])
+                if enterprise_search_key is not None:
+                    set_nested_property(prop, ['@Search', 'defaultSearchElement'], True)
+                    #if '@Search' in prop:
+                    #    prop['@Search']['defaultSearchElement'] = True
+                    #else:
+                    #    prop['@Search'] = { 'defaultSearchElement': True }
+
 
         return self._get_sql_statement(), self.esh_config
 

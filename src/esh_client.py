@@ -435,7 +435,10 @@ class EshConfiguration(BaseModel):
     annotation_enterprise_search: AnnotationEnterpriseSearch | None = Field( default=None, alias='@EnterpriseSearch')
     annotation_sap: AnnotationSap | None = Field( default=None, alias='@SAP')
     annotation_end_user_text: str | None = Field( default=None, alias='@EndUserText')
-    
+
+    class Config:
+        extra = 'forbid'
+
 
 class EshRequest(BaseModel):
     type: Literal['EshRequest'] = 'EshRequest'

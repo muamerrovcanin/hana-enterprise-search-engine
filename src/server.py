@@ -19,6 +19,7 @@ from hdbcli.dbapi import Error as HDBException
 from hdbcli.dbapi import ProgrammingError as HDBExceptionProgrammingError
 from pydantic import BaseModel, ValidationError
 from enum import Enum
+from query_mapping import get_annotations_serialized
 
 import server_globals as glob
 import consistency_check
@@ -304,13 +305,41 @@ async def post_model(tenant_id: str, cson=Body(...), simulate: bool = False):
                     handle_error(f'dbapi Error: {e.errorcode}, {e.errortext}')
             with DBConnection(glob.connection_pools[DBUserType.SCHEMA_MODIFY]) as db:
                 print(json.dumps(ddl['eshConfig'], indent=4))
+                esh_configs = ddl['eshConfig']
+                for esh_config in esh_configs:
+                    if 'content' in esh_config:
+                        if 'EntityType' in esh_config['content']:
+                            annotations_converted = {}
+                            delete_keys = []
+                            for annotation_key in esh_config['content']['EntityType']:
+                                if annotation_key.startswith('@'):
+                                   delete_keys.append(annotation_key)
+                            annotations_converted = annotations_converted | get_annotations_serialized(esh_config['content']['EntityType'])
+                            for delete_key in delete_keys:    
+                                del esh_config['content']['EntityType'][delete_key]
+                            esh_config['content']['EntityType'] = esh_config['content']['EntityType'] | annotations_converted
+                            if 'Properties' in esh_config['content']['EntityType']:
+                                for i in range(len(esh_config['content']['EntityType']['Properties'])):
+                                    content_entity_type_property = esh_config['content']['EntityType']['Properties'][i]
+                                    annotations_converted = {}
+                                    delete_keys = []
+                                    for annotation_key in content_entity_type_property:
+                                        if annotation_key.startswith('@'):
+                                            delete_keys.append(annotation_key)
+                                    annotations_converted = annotations_converted | get_annotations_serialized(content_entity_type_property)
+                                    for delete_key in delete_keys:        
+                                        del content_entity_type_property[delete_key]
+                                    esh_config['content']['EntityType']['Properties'][i] = content_entity_type_property | annotations_converted
+                print('Converted')
+                print(json.dumps(esh_configs, indent=4))          
+
                 db.cur.callproc(
-                    'ESH_CONFIG', (json.dumps(ddl['eshConfig']), None))
+                    'ESH_CONFIG', (json.dumps(esh_configs), None))
                 res = db.cur.fetchone()
                 if res[0]:
                     handle_error(res[0], 422)
                 sql = f'insert into "{tenant_schema_name}"._CONTROL (TYPE, CREATED_AT, CONTENT) VALUES (?, ?, ?)'
-                values = [('CSON', created_at, json.dumps(cson)), ('MAPPING', created_at, json.dumps(mapping)), ('ESH_CONFIG', created_at, json.dumps(ddl['eshConfig']))]
+                values = [('CSON', created_at, json.dumps(cson)), ('MAPPING', created_at, json.dumps(mapping)), ('ESH_CONFIG', created_at, json.dumps(esh_configs))]
                 db.cur.executemany(sql, values)
                 db.cur.connection.commit()
                 glob.mapping[tenant_schema_name] = mapping
@@ -377,9 +406,35 @@ async def post_model(tenant_id: str, cson_config: EshRequest):
             handle_error(str(e), 400)
         try:
             with DBConnection(glob.connection_pools[DBUserType.SCHEMA_MODIFY]) as db:
-                print(json.dumps(ddl['eshConfig'], indent=4))
+                esh_configs = ddl['eshConfig']
+                for esh_config in esh_configs:
+                    if 'content' in esh_config:
+                        if 'EntityType' in esh_config['content']:
+                            annotations_converted = {}
+                            delete_keys = []
+                            for annotation_key in esh_config['content']['EntityType']:
+                                if annotation_key.startswith('@'):
+                                   delete_keys.append(annotation_key)
+                            annotations_converted = annotations_converted | get_annotations_serialized(esh_config['content']['EntityType'])
+                            for delete_key in delete_keys:    
+                                del esh_config['content']['EntityType'][delete_key]
+                            esh_config['content']['EntityType'] = esh_config['content']['EntityType'] | annotations_converted
+                            if 'Properties' in esh_config['content']['EntityType']:
+                                for i in range(len(esh_config['content']['EntityType']['Properties'])):
+                                    content_entity_type_property = esh_config['content']['EntityType']['Properties'][i]
+                                    annotations_converted = {}
+                                    delete_keys = []
+                                    for annotation_key in content_entity_type_property:
+                                        if annotation_key.startswith('@'):
+                                            delete_keys.append(annotation_key)
+                                    annotations_converted = annotations_converted | get_annotations_serialized(content_entity_type_property)
+                                    for delete_key in delete_keys:        
+                                        del content_entity_type_property[delete_key]
+                                    esh_config['content']['EntityType']['Properties'][i] = content_entity_type_property | annotations_converted
+                print('Converted')
+                print(json.dumps(esh_configs, indent=4))          
                 db.cur.callproc(
-                    'ESH_CONFIG', (json.dumps(ddl['eshConfig']), None))
+                    'ESH_CONFIG', (json.dumps(esh_configs), None))
                 res = db.cur.fetchone()
                 if res[0]:
                     handle_error(res[0], 422)
@@ -399,7 +454,7 @@ async def post_model(tenant_id: str, cson_config: EshRequest):
         try:
             with DBConnection(glob.connection_pools[DBUserType.DATA_WRITE]) as db:
                 sql = f'UPDATE "{tenant_schema_name}"._CONTROL SET CREATED_AT = ?, CONTENT = ? WHERE TYPE = \'ESH_CONFIG\''
-                values = [(created_at, json.dumps(ddl['eshConfig']))]
+                values = [(created_at, json.dumps(esh_configs))]
                 db.cur.executemany(sql, values)
                 db.cur.connection.commit()
         except HDBException as e:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 from copy import deepcopy
 from column_view import ColumnView
+from constants import VIEW_PREFIX
 from esh_client import EshRequest
 
 class Constants(object):
@@ -72,7 +73,7 @@ def mapping_to_ddl(mapping, schema_name, hana_version  = 2):
         if 'dynamic_annotations' in anchor_entity:
             for dynamic_config in anchor_entity['dynamic_annotations']:
                 cv.odata_name = dynamic_config
-                cv.view_name = dynamic_config
+                cv.view_name = VIEW_PREFIX + dynamic_config
                 cv.dynamic_configuration_id = dynamic_config
                 cv.default_annotations = False
 
