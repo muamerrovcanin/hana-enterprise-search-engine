@@ -4,6 +4,8 @@ from enum import Enum
 from typing import Any, List, Literal, Annotated, Union
 from pydantic import BaseModel, Field
 
+from constants import AnnotationConstants
+
 class LogicalOperator(str, Enum):
   AND = "AND"
   TIGHT_AND = ""
@@ -364,13 +366,16 @@ class AnnotationUIIdentification(BaseModel):
     valueQualifier: str | None
     targetElement: str | None
     url: str | None
-
+class AnnotationUIHeaderInfoTitle(BaseModel):
+    value: str | None
+    url: str | None
 class AnnotationUIHeaderInfo(BaseModel):
     typeName: str | None
     typeNamePlural: str | None
     description: str | None
     imageUrl: str | None
     imageData: str | None
+    title: AnnotationUIHeaderInfoTitle | None
 
 class AnnotationUI(BaseModel):
     hidden: bool | None
@@ -413,14 +418,17 @@ class AnnotationEndUserText(BaseModel):
     class Config:
         extra = 'forbid'
 
+class AnnotationSemantics(BaseModel):
+    imageUrl: bool | None
 class EshConfigurationElement(BaseModel):
     ref: list[str] | None #todo check None
     
-    annotation_ui: AnnotationUI | None = Field( default=None, alias='@UI')
-    annotation_search: AnnotationSearch | None = Field( default=None, alias='@Search')
-    annotation_enterprise_search: AnnotationEnterpriseSearch | None = Field( default=None, alias='@EnterpriseSearch')
-    annotation_sap: AnnotationSap | None = Field( default=None, alias='@SAP')
-    annotation_end_user_text: AnnotationEndUserText | None = Field( default=None, alias='@EndUserText')
+    annotation_ui: AnnotationUI | None = Field( default=None, alias=AnnotationConstants.UI)
+    annotation_search: AnnotationSearch | None = Field( default=None, alias=AnnotationConstants.Search)
+    annotation_enterprise_search: AnnotationEnterpriseSearch | None = Field( default=None, alias=AnnotationConstants.EnterpriseSearch)
+    annotation_sap: AnnotationSap | None = Field( default=None, alias=AnnotationConstants.SAP)
+    annotation_end_user_text: AnnotationEndUserText | None = Field( default=None, alias=AnnotationConstants.EndUserText)
+    annotation_semantics: AnnotationSemantics | None = Field( default=None, alias=AnnotationConstants.Semantics)
 
     class Config:
         extra = 'forbid'

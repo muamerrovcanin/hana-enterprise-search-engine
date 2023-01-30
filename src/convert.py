@@ -4,11 +4,11 @@ from esh_client import EshConfiguration, EshConfigurationElement
 from name_mapping import NameMapping
 import json
 import base64
-from constants import TYPES_B64_DECODE, TYPES_SPATIAL, SPATIAL_DEFAULT_SRID, ENTITY_PREFIX, COLUMN_ANNOTATIONS
+from constants import TYPES_B64_DECODE, TYPES_SPATIAL, SPATIAL_DEFAULT_SRID, ENTITY_PREFIX, COLUMN_ANNOTATIONS, AnnotationConstants
 from copy import deepcopy
 from enum import Enum
 
-from query_mapping import get_annotations_serialized
+from query_mapping import get_nested_property
 
 PRIVACY_CATEGORY_COLUMN_DEFINITION = ('_PRIVACY_CATEGORY', {'type':'TINY'})
 PRIVACY_CATEGORY_ANNOTATION = '@EnterpriseSearchIndex.privacyCategory'
@@ -227,10 +227,12 @@ def process_property(cson, pk, table, entity, element_name, table_name_mapping, 
     entity['elements'][element_name_ext]['column_name'] = element_name
     dynamic_property_annotations = {}
     entity_name = table['external_path'][0]
-    if '@sap.esh.Configuration' in cson['definitions'][entity_name]:
+    esh_configuration = get_nested_property(cson['definitions'][entity_name], [AnnotationConstants.SAP, AnnotationConstants.Esh, AnnotationConstants.Configuration])
+    #if '@sap.esh.Configuration' in cson['definitions'][entity_name]:
+    if esh_configuration is not None:
         config_element: EshConfiguration
 
-        for esh_config_item in cson['definitions'][entity_name]['@sap.esh.Configuration']:
+        for esh_config_item in esh_configuration:
             if isinstance(esh_config_item, EshConfiguration):
                 config_element = esh_config_item
             else:
@@ -238,8 +240,8 @@ def process_property(cson, pk, table, entity, element_name, table_name_mapping, 
                 config_element = EshConfiguration.parse_obj(esh_config_item)
             for el in config_element.elements:
                 if el.ref == table['columns'][element_name]['external_path']:
-                    serialized_annotations = get_annotations_serialized(el.dict(exclude_none=True, by_alias=True))
-                    dynamic_property_annotations = {k:v for k,v in serialized_annotations.items() if k.startswith('@') and k not in COLUMN_ANNOTATIONS}
+                    # serialized_annotations = get_annotations_serialized(el.dict(exclude_none=True, by_alias=True))
+                    dynamic_property_annotations = {k:v for k,v in el.dict(exclude_none=True, by_alias=True).items() if k.startswith('@') and k not in COLUMN_ANNOTATIONS}
                     if 'dynamic_annotations' not in entity['elements'][element_name_ext]:
                        entity['elements'][element_name_ext]['dynamic_annotations'] = {}
                     # entity['elements'][element_name_ext][esh_config_item.id]['dynamic_annotations'] = dynamic_property_annotations
@@ -286,9 +288,10 @@ def cson_entity_to_tables(table_name_mapping, cson, tables, path, type_name, typ
         if is_table:
             if subtable_level == 0:
                 dynamic_annotations = {}
-                if '@sap.esh.Configuration' in type_definition:
+                sap_esh_configuration = get_nested_property(type_definition, [AnnotationConstants.SAP, AnnotationConstants.Esh, AnnotationConstants.Configuration])
+                if sap_esh_configuration is not None:
                     esh_configuration: EshConfiguration
-                    for esh_config_item in type_definition['@sap.esh.Configuration']:
+                    for esh_config_item in sap_esh_configuration:
                         if isinstance(esh_config_item, EshConfiguration):
                             esh_configuration = esh_config_item
                         else:
@@ -300,12 +303,13 @@ def cson_entity_to_tables(table_name_mapping, cson, tables, path, type_name, typ
                     #    raise Exception('missing mandatory property elements in the configuration: ' + esh_configuration.id)
                     
                     # dynamic_annotations = {k:v for k,v in esh_configuration.dict(exclude_none=True, by_alias=True).items() if k.startswith('@')}
-                    serialized_annotations = get_annotations_serialized(esh_configuration.dict(exclude_none=True, by_alias=True))
-                    dynamic_annotations = {k:v for k,v in serialized_annotations.items() if k.startswith('@')}
+                    # serialized_annotations = get_annotations_serialized(esh_configuration.dict(exclude_none=True, by_alias=True))
+                    dynamic_annotations = {k:v for k,v in esh_configuration.dict(exclude_none=True, by_alias=True).items() if k.startswith('@')}
                     if 'dynamic_annotations' not in entity:
                         entity['dynamic_annotations'] = {}
                     entity['dynamic_annotations'][esh_configuration.id] = dynamic_annotations
-                annotations = {k:v for k,v in type_definition.items() if k.startswith('@') and k != '@sap.esh.Configuration'}
+                annotations = {k:v for k,v in type_definition.items() if k.startswith('@') and k != AnnotationConstants.SAP}
+                # annotations = {k:v for k,v in type_definition.items() if k.startswith('@') and k != '@sap.esh.Configuration'}
                 #if dynamic_annotations:
                 #    for k,v in dynamic_annotations.items():
                 #        annotations[k] = v
@@ -332,7 +336,8 @@ def cson_entity_to_tables(table_name_mapping, cson, tables, path, type_name, typ
     type_definition = find_definition(cson, type_definition) # ToDo: check, if needed
     if type_definition['kind'] == 'entity' or (path and 'elements' in type_definition):
         for element_name_ext, element in type_definition['elements'].items():
-            is_virtual = '@sap.esh.isVirtual' in element and element['@sap.esh.isVirtual']
+            # is_virtual = '@sap.esh.isVirtual' in element and element['@sap.esh.isVirtual']
+            is_virtual = get_nested_property(element, [AnnotationConstants.SAP, AnnotationConstants.Esh, AnnotationConstants.IsVirtual])
             if not is_virtual and 'type' in element and element['type'] == 'cds.Association' and 'cardinality' in element and element['cardinality'] == {'max': '*'}:
                 element = {'items':deepcopy(element)}
                 del element['items']['cardinality']
@@ -628,7 +633,7 @@ def object_to_dml(mapping, inserts, objects, idmapping, write_mode, id_generator
     if 'items' in entity:
         raise DataException(f'list expected for {json.dumps(objects)}')
     for obj in objects:
-        if write_mode == WriteMode.CREATE and subtable_level == 0 and 'id' in obj and not external_id:
+        if write_mode == WriteMode.CREATE and subtable_level == 0 and 'id' in obj and not external_id and len(col_prefix) == 0:
             raise DataException('id is a reserved property name')
         if propagated_row is None:
             row = []
@@ -677,39 +682,40 @@ def object_to_dml(mapping, inserts, objects, idmapping, write_mode, id_generator
             row = propagated_row
             object_id = propagated_object_id
         for k, v in obj.items():
-            value = None
-            if k in entity['elements']:
-                prop = entity['elements'][k]
-                if 'definition' in prop and 'type' in prop['definition']\
-                    and prop['definition']['type'] == 'cds.Association':
-                    value = association_to_dml(id_generator, idmapping, prop, k, v)
-            else:
-                raise DataException(f'Unknown property {k}')
-            if value is None and isinstance(v, list):
-                if not 'items' in entity['elements'][k]:
-                    raise DataException(f'{k} is not an array property')
-                if entity['elements'][k]['items']['elements']:
-                    object_to_dml(mapping, inserts, v, idmapping, write_mode, id_generator,\
-                        subtable_level + 1, parent_object_id = object_id,
-                        entity=entity['elements'][k]['items'], parent_table_name=full_table_name)
+            if v:
+                value = None
+                if k in entity['elements']:
+                    prop = entity['elements'][k]
+                    if 'definition' in prop and 'type' in prop['definition']\
+                        and prop['definition']['type'] == 'cds.Association':
+                        value = association_to_dml(id_generator, idmapping, prop, k, v)
                 else:
-                    array_to_dml(idmapping, mapping, inserts, v, subtable_level + 1, object_id, id_generator
-                    , entity['elements'][k]['items'], k)
-            elif value is None and isinstance(v, dict) and (not 'column_name' in entity['elements'][k] or not \
-                mapping['tables'][full_table_name]['columns'][entity['elements'][k]['column_name']]['type'] in TYPES_SPATIAL):
-                object_to_dml(mapping, inserts, [v], idmapping, write_mode, id_generator, subtable_level,\
-                     col_prefix + [k], propagated_row = row, propagated_object_id=object_id, 
-                    entity=entity['elements'][k], parent_table_name=full_table_name)
-            else:
-                column_name = entity['elements'][k]['column_name']
-                if not value:
-                    value = value_ext_to_int(\
-                        mapping['tables'][full_table_name]['columns'][column_name]['type'], v)
-                if not column_name in inserts[full_table_name]['columns']:
-                    inserts[full_table_name]['columns'][column_name] = len(inserts[full_table_name]['columns'])
-                    row.append(value)
+                    raise DataException(f'Unknown property {k}')
+                if value is None and isinstance(v, list):
+                    if not 'items' in entity['elements'][k]:
+                        raise DataException(f'{k} is not an array property')
+                    if entity['elements'][k]['items']['elements']:
+                        object_to_dml(mapping, inserts, v, idmapping, write_mode, id_generator,\
+                            subtable_level + 1, parent_object_id = object_id,
+                            entity=entity['elements'][k]['items'], parent_table_name=full_table_name)
+                    else:
+                        array_to_dml(idmapping, mapping, inserts, v, subtable_level + 1, object_id, id_generator
+                        , entity['elements'][k]['items'], k)
+                elif value is None and isinstance(v, dict) and (not 'column_name' in entity['elements'][k] or not \
+                    mapping['tables'][full_table_name]['columns'][entity['elements'][k]['column_name']]['type'] in TYPES_SPATIAL):
+                    object_to_dml(mapping, inserts, [v], idmapping, write_mode, id_generator, subtable_level,\
+                        col_prefix + [k], propagated_row = row, propagated_object_id=object_id, 
+                        entity=entity['elements'][k], parent_table_name=full_table_name)
                 else:
-                    row[inserts[full_table_name]['columns'][column_name]] = value
+                    column_name = entity['elements'][k]['column_name']
+                    if not value:
+                        value = value_ext_to_int(\
+                            mapping['tables'][full_table_name]['columns'][column_name]['type'], v)
+                    if not column_name in inserts[full_table_name]['columns']:
+                        inserts[full_table_name]['columns'][column_name] = len(inserts[full_table_name]['columns'])
+                        row.append(value)
+                    else:
+                        row[inserts[full_table_name]['columns'][column_name]] = value
         if row and not propagated_row and full_table_name in inserts:
             inserts[full_table_name]['rows'].append(row)
 

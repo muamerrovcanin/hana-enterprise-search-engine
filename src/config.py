@@ -119,6 +119,8 @@ if __name__ == '__main__':
                             logging.info('Creating new DB User %s with password %s', user_name, user_password)
                             sql = f'CREATE USER {user_name} PASSWORD {user_password} NO FORCE_FIRST_PASSWORD_CHANGE'
                             db.cur.execute(sql)
+                            sql = f'ALTER USER {user_name} DISABLE PASSWORD LIFETIME'
+                            db.cur.execute(sql)
                         except HDBException as e:
                             if e.errorcode == 258:
                                 logging.error('Cannot create new user: system privilege USER ADMIN is missing')

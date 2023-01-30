@@ -94,7 +94,7 @@ class TestQueryMapping(unittest.TestCase):
         }
         self.assertEqual(serialized_annotations, expected_result)
 
-    def test_get_nested_object(self):
+    def test_get_nested_property(self):
         data = {
                 "@EnterpriseSearch": {
                     "l1": {
@@ -105,13 +105,13 @@ class TestQueryMapping(unittest.TestCase):
                     }
                 }
             }
-        nested_object = query_mapping.get_nested_object(data, ['@EnterpriseSearch', 'l1', 'l2'])
+        nested_object = query_mapping.get_nested_property(data, ['@EnterpriseSearch', 'l1', 'l2'])
         self.assertEqual(nested_object, ['a', 'b'])
 
-        nested_object_1 = query_mapping.get_nested_object(data, ['@SomethingStrange'])
+        nested_object_1 = query_mapping.get_nested_property(data, ['@SomethingStrange'])
         self.assertIsNone(nested_object_1)
 
-        nested_object_2 = query_mapping.get_nested_object(data, ['@EnterpriseSearch', 'SomethingStrange'])
+        nested_object_2 = query_mapping.get_nested_property(data, ['@EnterpriseSearch', 'SomethingStrange'])
         self.assertIsNone(nested_object_2)
 
     def test_set_nested_property(self):
@@ -131,7 +131,133 @@ class TestQueryMapping(unittest.TestCase):
         nested_object_3 = query_mapping.set_nested_property(data, ['l4', 'l4-1', 'l4-1-1'], ["aa", "bb"])
         self.assertEqual(nested_object_3, {'l1': 123, 'l2': {'l2-1': "abc", 'l2-2': True}, 'l3': 456, 'l4': {'l4-1': {'l4-1-1': ["aa", "bb"]}}})
 
-        print(json.dumps(data, indent=4))
+        # print(json.dumps(data, indent=4))
+
+    def test_reconfigure_annotation_from_structured_objects(self):
+        esh_config_content = {
+            "Fullname": "ROV_TENANT_mrconf/VIEW/PERSON",
+            "EntityType": {
+                "@EnterpriseSearch": {
+                    "enabled": True
+                },
+                "@Search": {
+                    "searchable": True
+                },
+                "@EnterpriseSearchHana": {
+                    "identifier": "PERSON",
+                    "passThroughAllAnnotations": True
+                },
+                "@UI": {
+                    "headerInfo": {
+                        "typeName": "Person-abc",
+                        "typeNamePlural": "Persons-abc"
+                    }
+                },
+                "Properties": [
+                    {
+                        "Name": "ID",
+                        "@EnterpriseSearch": {
+                            "key": True
+                        },
+                        "@UI": {
+                            "hidden": True
+                        }
+                    },
+                    {
+                        "Name": "FIRSTNAME",
+                        "@Search": {
+                            "fuzzinessThreshold": 0.12
+                        },
+                        "@EnterpriseSearch": {
+                            "searchOptions": "similarCalculationMode=substringsearch"
+                        },
+                        "@EndUserText": {
+                            "label": "First Name-abc"
+                        },
+                        "@UI": {
+                            "identification": [
+                            {
+                                "position": 11
+                            }
+                            ]
+                        }
+                    },
+                    {
+                        "Name": "LASTNAME",
+                        "@UI.identification": [
+                            {
+                                "position": 22
+                            }
+                        ],
+                        "@Search": {
+                            "fuzzinessThreshold": 0.89,
+                            "defaultSearchElement": True
+                        },
+                        "@EnterpriseSearch": {
+                            "searchOptions": "similarCalculationMode=substringsearch"
+                        },
+                        "@EndUserText": {
+                            "label": "Last Name-abc"
+                        },
+                        "@UI": {
+                            "identification": [
+                            {
+                                "position": 22
+                            }
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+        esh_config_content = query_mapping.reconfigure_annotation_from_structured_objects(esh_config_content)
+
+        expected_esh_config_content_after_reconfigure = {
+            "Fullname": "ROV_TENANT_mrconf/VIEW/PERSON",
+            "EntityType": {
+                "@EnterpriseSearch.enabled": True,
+                "@Search.searchable": True,
+                "@EnterpriseSearchHana.identifier": "PERSON",
+                "@EnterpriseSearchHana.passThroughAllAnnotations": True,
+                "@UI.headerInfo.typeName": "Person-abc",
+                "@UI.headerInfo.typeNamePlural": "Persons-abc",
+                "Properties": [
+                    {
+                        "Name": "ID",
+                        "@UI.hidden": True,
+                        "@EnterpriseSearch.key": True
+                    },
+                    {
+                        "Name": "FIRSTNAME",
+                        "@UI.identification": [
+                            {
+                                "position": 11
+                            }
+                        ],
+                        "@Search.fuzzinessThreshold": 0.12,
+                        "@EnterpriseSearch.searchOptions": "similarCalculationMode=substringsearch",
+                        "@EndUserText.label": "First Name-abc"
+                    },
+                    {
+                        "Name": "LASTNAME",
+                        "@UI.identification": [
+                            {
+                                "position": 22
+                            }
+                        ],
+                        "@Search.defaultSearchElement": True,
+                        "@Search.fuzzinessThreshold": 0.89,
+                        "@EnterpriseSearch.searchOptions": "similarCalculationMode=substringsearch",
+                        "@EndUserText.label": "Last Name-abc"
+                    }
+                ]
+            }
+        }
+        print(json.dumps(esh_config_content, indent = 4))
+        print("*********** Reconfigured ESH configuration: *************")
+        print(json.dumps(expected_esh_config_content_after_reconfigure, indent = 4))
+        self.assertEqual(esh_config_content, expected_esh_config_content_after_reconfigure)
+
 
 
 

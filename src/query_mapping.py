@@ -104,7 +104,9 @@ def get_annotations_deserialized(annotation: dict) -> dict:
                         active_object[path[i]] = {}
     return deserialized_annotations
 
-def get_nested_object(data: dict, path: list[str]):
+def get_nested_property(data: dict, path: list[str]):
+    # if not isinstance(data, dict):
+    #    raise Exception('Unexpected type of data to get nested property')
     local_data = data
     for path_element in path:
         if path_element in local_data:
@@ -131,3 +133,30 @@ def set_nested_property(data: dict, path: list[str], value):
         else:
             local_data[path_element] = value 
     return data
+
+def reconfigure_annotation_from_structured_objects(esh_config_content: dict):
+    if 'EntityType' in esh_config_content:
+        annotations_converted = {}
+        delete_keys = []
+        for annotation_key in esh_config_content['EntityType']:
+            if annotation_key.startswith('@'):
+                delete_keys.append(annotation_key)
+        annotations_converted = annotations_converted | get_annotations_serialized(esh_config_content['EntityType'])
+        for delete_key in delete_keys:    
+            del esh_config_content['EntityType'][delete_key]
+        esh_config_content['EntityType'] = esh_config_content['EntityType'] | annotations_converted
+        if 'Properties' in esh_config_content['EntityType']:
+            for i in range(len(esh_config_content['EntityType']['Properties'])):
+                content_entity_type_property = esh_config_content['EntityType']['Properties'][i]
+                annotations_converted = {}
+                delete_keys = []
+                for annotation_key in content_entity_type_property:
+                    if annotation_key.startswith('@'):
+                        delete_keys.append(annotation_key)
+                annotations_converted = annotations_converted | get_annotations_serialized(content_entity_type_property)
+                for delete_key in delete_keys:        
+                    del content_entity_type_property[delete_key]
+                esh_config_content['EntityType']['Properties'][i] = content_entity_type_property | annotations_converted
+    else:
+        raise Exception("missing mandatory property EntityType in the configuration")
+    return esh_config_content

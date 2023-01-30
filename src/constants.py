@@ -43,4 +43,24 @@ class ConfigCredentials(Credentials):
         password = config['hana']['adminPassword']
         super(ConfigCredentials, self).__init__(host, port, user, password)
 
+class AnnotationConstants():
+    SAP = '@SAP'
+    UI = '@UI'
+    Search = '@Search'
+    EnterpriseSearch = '@EnterpriseSearch'
+    EnterpriseSearchHana = '@EnterpriseSearchHana'
+    Semantics = '@Semantics'
+    EndUserText = '@EndUserText'
+
+    Esh = 'Esh'
+    defaultSearchElement = 'defaultSearchElement'
+    ImageUrl = 'ImageUrl'
+
+    Hidden = 'Hidden'
+    Identification = 'Identification'
+
+    Configuration = 'Configuration'
+    IsText = 'IsText'
+    IsVirtual = 'IsVirtual'
+
 

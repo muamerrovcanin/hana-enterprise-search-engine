@@ -19,7 +19,7 @@ from hdbcli.dbapi import Error as HDBException
 from hdbcli.dbapi import ProgrammingError as HDBExceptionProgrammingError
 from pydantic import BaseModel, ValidationError
 from enum import Enum
-from query_mapping import get_annotations_serialized
+from query_mapping import get_nested_property, reconfigure_annotation_from_structured_objects, set_nested_property
 
 import server_globals as glob
 import consistency_check
@@ -27,7 +27,7 @@ import convert
 import sqlcreate
 from config import get_user_name
 from constants import (CONCURRENT_CONNECTIONS,
-                       TENANT_ID_MAX_LENGTH, TENANT_PREFIX, DBUserType)
+                       TENANT_ID_MAX_LENGTH, TENANT_PREFIX, AnnotationConstants, DBUserType)
 from db_connection_pool import (
     ConnectionPool, Credentials, DBBulkProcessing, DBConnection)
 from esh_client import EshConfiguration, EshObject, EshRequest, SearchRuleSet
@@ -304,35 +304,11 @@ async def post_model(tenant_id: str, cson=Body(...), simulate: bool = False):
                     await db_bulk.rollback()
                     handle_error(f'dbapi Error: {e.errorcode}, {e.errortext}')
             with DBConnection(glob.connection_pools[DBUserType.SCHEMA_MODIFY]) as db:
-                print(json.dumps(ddl['eshConfig'], indent=4))
                 esh_configs = ddl['eshConfig']
                 for esh_config in esh_configs:
                     if 'content' in esh_config:
-                        if 'EntityType' in esh_config['content']:
-                            annotations_converted = {}
-                            delete_keys = []
-                            for annotation_key in esh_config['content']['EntityType']:
-                                if annotation_key.startswith('@'):
-                                   delete_keys.append(annotation_key)
-                            annotations_converted = annotations_converted | get_annotations_serialized(esh_config['content']['EntityType'])
-                            for delete_key in delete_keys:    
-                                del esh_config['content']['EntityType'][delete_key]
-                            esh_config['content']['EntityType'] = esh_config['content']['EntityType'] | annotations_converted
-                            if 'Properties' in esh_config['content']['EntityType']:
-                                for i in range(len(esh_config['content']['EntityType']['Properties'])):
-                                    content_entity_type_property = esh_config['content']['EntityType']['Properties'][i]
-                                    annotations_converted = {}
-                                    delete_keys = []
-                                    for annotation_key in content_entity_type_property:
-                                        if annotation_key.startswith('@'):
-                                            delete_keys.append(annotation_key)
-                                    annotations_converted = annotations_converted | get_annotations_serialized(content_entity_type_property)
-                                    for delete_key in delete_keys:        
-                                        del content_entity_type_property[delete_key]
-                                    esh_config['content']['EntityType']['Properties'][i] = content_entity_type_property | annotations_converted
-                print('Converted')
+                        esh_config['content'] = reconfigure_annotation_from_structured_objects(esh_config['content'])
                 print(json.dumps(esh_configs, indent=4))          
-
                 db.cur.callproc(
                     'ESH_CONFIG', (json.dumps(esh_configs), None))
                 res = db.cur.fetchone()
@@ -363,6 +339,8 @@ async def post_model(tenant_id: str, cson_config: EshRequest):
             sql = f'select CONTENT from "{tenant_schema_name}"."_CONTROL" where "TYPE" = \'CSON\''
             db.cur.execute(sql)
             res = db.cur.fetchone()
+            if res is None or res.column_values is None:
+                handle_error(f"Model does not exist in tenant '{tenant_id}'", 404)
             if res.column_values:
                 cson_db = json.loads(res.column_values[0])
         except HDBException as e:
@@ -374,19 +352,21 @@ async def post_model(tenant_id: str, cson_config: EshRequest):
                 handle_error(f'dbapi Error: {e.errorcode}, {e.errortext}')
     if cson_db:
         for entity in cson_db['definitions']:
-            if '@sap.esh.Configuration' in cson_db['definitions'][entity]:
-                del cson_db['definitions'][entity]['@sap.esh.Configuration']
+            esh_configuration = get_nested_property(cson_db['definitions'][entity], [AnnotationConstants.SAP, AnnotationConstants.Esh, AnnotationConstants.Configuration])
+            if esh_configuration is not None:
+                del cson_db['definitions'][entity][AnnotationConstants.SAP]
+            #if '@sap.esh.Configuration' in cson_db['definitions'][entity]:
+                # del cson_db['definitions'][entity]['@sap.esh.Configuration']
         for config in cson_config.configurations:
-            '''
-            for element in config['elements']:
-                entity_name = element['ref'][0]
-                element['ref'].pop(0)
-            '''
             if not config.entity:
                 raise Exception("missing mandatory parameter entity in the configuration")
-            if '@sap.esh.Configuration' not in cson_db['definitions'][config.entity]:
-                cson_db['definitions'][config.entity]['@sap.esh.Configuration'] = []
-            cson_db['definitions'][config.entity]['@sap.esh.Configuration'].append(config.dict(exclude_none=True, by_alias=True))
+            esh_configuration_config = get_nested_property(cson_db['definitions'][config.entity], [AnnotationConstants.SAP, AnnotationConstants.Esh, AnnotationConstants.Configuration])
+            if esh_configuration_config is None:
+                set_nested_property(cson_db['definitions'][config.entity], [AnnotationConstants.SAP, AnnotationConstants.Esh, AnnotationConstants.Configuration], [])
+                esh_configuration_config = get_nested_property(cson_db['definitions'][config.entity], [AnnotationConstants.SAP, AnnotationConstants.Esh, AnnotationConstants.Configuration])
+            # if '@sap.esh.Configuration' not in cson_db['definitions'][config.entity]:
+            #    cson_db['definitions'][config.entity]['@sap.esh.Configuration'] = []
+            esh_configuration_config.append(config.dict(exclude_none=True, by_alias=True))
 
 
 
@@ -407,31 +387,9 @@ async def post_model(tenant_id: str, cson_config: EshRequest):
         try:
             with DBConnection(glob.connection_pools[DBUserType.SCHEMA_MODIFY]) as db:
                 esh_configs = ddl['eshConfig']
-                for esh_config in esh_configs:
-                    if 'content' in esh_config:
-                        if 'EntityType' in esh_config['content']:
-                            annotations_converted = {}
-                            delete_keys = []
-                            for annotation_key in esh_config['content']['EntityType']:
-                                if annotation_key.startswith('@'):
-                                   delete_keys.append(annotation_key)
-                            annotations_converted = annotations_converted | get_annotations_serialized(esh_config['content']['EntityType'])
-                            for delete_key in delete_keys:    
-                                del esh_config['content']['EntityType'][delete_key]
-                            esh_config['content']['EntityType'] = esh_config['content']['EntityType'] | annotations_converted
-                            if 'Properties' in esh_config['content']['EntityType']:
-                                for i in range(len(esh_config['content']['EntityType']['Properties'])):
-                                    content_entity_type_property = esh_config['content']['EntityType']['Properties'][i]
-                                    annotations_converted = {}
-                                    delete_keys = []
-                                    for annotation_key in content_entity_type_property:
-                                        if annotation_key.startswith('@'):
-                                            delete_keys.append(annotation_key)
-                                    annotations_converted = annotations_converted | get_annotations_serialized(content_entity_type_property)
-                                    for delete_key in delete_keys:        
-                                        del content_entity_type_property[delete_key]
-                                    esh_config['content']['EntityType']['Properties'][i] = content_entity_type_property | annotations_converted
-                print('Converted')
+                for i in range(len(esh_configs))    :                    
+                    if 'content' in esh_configs[i]:
+                        esh_configs[i]['content'] = reconfigure_annotation_from_structured_objects(esh_configs[i]['content'])
                 print(json.dumps(esh_configs, indent=4))          
                 db.cur.callproc(
                     'ESH_CONFIG', (json.dumps(esh_configs), None))
@@ -551,8 +509,9 @@ async def get_search_by_tenant(tenant_id):
 @app.get('/v1/search/{tenant_id:path}/{esh_version:path}/$metadata')
 def get_search_metadata(tenant_id, esh_version):
     schema_name = get_tenant_schema_name(tenant_id)
+    metadata_xml = search.perform_search(esh_version, schema_name, '/$metadata', True)
     return Response(
-        content=search.perform_search(esh_version, schema_name, '/$metadata', True), headers={"Access-Control-Allow-Origin":"*"}, media_type='application/xml')
+        content=metadata_xml.replace('Edm.GeographyPoint','Edm.GeometryPoint'), headers={"Access-Control-Allow-Origin":"*"}, media_type='application/xml')
 
 
 @app.get('/v1/search/{tenant_id:path}/{esh_version:path}/$metadata/{path:path}')

@@ -147,29 +147,7 @@ async def search_query(schema_name, mapping, esh_version, queries, crud, esh_req
         esh_query = {'URI': uris}
         if configurations:
             for esh_config_content in configurations:
-                if 'EntityType' in esh_config_content:
-                    annotations_converted = {}
-                    delete_keys = []
-                    for annotation_key in esh_config_content['EntityType']:
-                        if annotation_key.startswith('@'):
-                            delete_keys.append(annotation_key)
-                    annotations_converted = annotations_converted | query_mapping.get_annotations_serialized(esh_config_content['EntityType'])
-                    for delete_key in delete_keys:    
-                        del esh_config_content['EntityType'][delete_key]
-                    esh_config_content['EntityType'] = esh_config_content['EntityType'] | annotations_converted
-                    if 'Properties' in esh_config_content['EntityType']:
-                        for i in range(len(esh_config_content['EntityType']['Properties'])):
-                            content_entity_type_property = esh_config_content['EntityType']['Properties'][i]
-                            annotations_converted = {}
-                            delete_keys = []
-                            for annotation_key in content_entity_type_property:
-                                if annotation_key.startswith('@'):
-                                    delete_keys.append(annotation_key)
-                            annotations_converted = annotations_converted | query_mapping.get_annotations_serialized(content_entity_type_property)
-                            for delete_key in delete_keys:        
-                                del content_entity_type_property[delete_key]
-                            esh_config_content['EntityType']['Properties'][i] = content_entity_type_property | annotations_converted
-                
+                esh_config_content = query_mapping.reconfigure_annotation_from_structured_objects(esh_config_content)
             esh_query['Configuration'] = configurations
         esh_queries.append(esh_query)
     if dynamic_views:
