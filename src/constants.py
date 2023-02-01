@@ -44,6 +44,9 @@ class ConfigCredentials(Credentials):
         super(ConfigCredentials, self).__init__(host, port, user, password)
 
 class AnnotationConstants():
+    
+    annotations = 'annotations'
+
     SAP = '@SAP'
     UI = '@UI'
     Search = '@Search'

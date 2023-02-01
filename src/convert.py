@@ -172,7 +172,7 @@ def get_sql_type(table_name_mapping, cson, cap_type, pk):
             raise ModelException(f'Unexpected cds type {t}')
 
     # Copy annotations
-    annotations = {k:v for k,v in cap_type.items() if k in COLUMN_ANNOTATIONS}
+    annotations = {k:v for k,v in cap_type.items() if k.startswith('@') } # k in COLUMN_ANNOTATIONS}
     if annotations:
         sql_type['annotations'] = annotations
 
@@ -241,7 +241,7 @@ def process_property(cson, pk, table, entity, element_name, table_name_mapping, 
             for el in config_element.elements:
                 if el.ref == table['columns'][element_name]['external_path']:
                     # serialized_annotations = get_annotations_serialized(el.dict(exclude_none=True, by_alias=True))
-                    dynamic_property_annotations = {k:v for k,v in el.dict(exclude_none=True, by_alias=True).items() if k.startswith('@') and k not in COLUMN_ANNOTATIONS}
+                    dynamic_property_annotations = {k:v for k,v in el.dict(exclude_none=True, by_alias=True).items() if k.startswith('@') } #and k not in COLUMN_ANNOTATIONS
                     if 'dynamic_annotations' not in entity['elements'][element_name_ext]:
                        entity['elements'][element_name_ext]['dynamic_annotations'] = {}
                     # entity['elements'][element_name_ext][esh_config_item.id]['dynamic_annotations'] = dynamic_property_annotations
@@ -258,7 +258,7 @@ def process_property(cson, pk, table, entity, element_name, table_name_mapping, 
                 break
         '''
     else:
-        property_annotations = {k:v for k,v in element.items() if k.startswith('@') and k not in COLUMN_ANNOTATIONS}
+        property_annotations = {k:v for k,v in element.items() if k.startswith('@') } #and k not in COLUMN_ANNOTATIONS
         if property_annotations:
             entity['elements'][element_name_ext]['annotations'] = property_annotations
     #for k, v in dynamic_property_annotations.items():
@@ -308,7 +308,7 @@ def cson_entity_to_tables(table_name_mapping, cson, tables, path, type_name, typ
                     if 'dynamic_annotations' not in entity:
                         entity['dynamic_annotations'] = {}
                     entity['dynamic_annotations'][esh_configuration.id] = dynamic_annotations
-                annotations = {k:v for k,v in type_definition.items() if k.startswith('@') and k != AnnotationConstants.SAP}
+                annotations = {k:v for k,v in type_definition.items() if k.startswith('@')}
                 # annotations = {k:v for k,v in type_definition.items() if k.startswith('@') and k != '@sap.esh.Configuration'}
                 #if dynamic_annotations:
                 #    for k,v in dynamic_annotations.items():
@@ -401,7 +401,7 @@ def cson_entity_to_tables(table_name_mapping, cson, tables, path, type_name, typ
                             entity=entity['elements'][element_name_ext])
                     else:
                         process_property(cson, pk, table, entity, element_name, table_name_mapping, element_name_ext, sur_prop_path, element, cson['definitions'][element['type']])
-                        elem_annotations = {k:v for k,v in element.items() if k in COLUMN_ANNOTATIONS}
+                        elem_annotations = {k:v for k,v in element.items() if k.startswith("@") }# k in COLUMN_ANNOTATIONS }
                         if elem_annotations:
                             if 'annotations' in table['columns'][element_name]:
                                 table['columns'][element_name]['annotations'] |= elem_annotations

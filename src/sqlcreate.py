@@ -2,8 +2,9 @@
 from __future__ import annotations
 from copy import deepcopy
 from column_view import ColumnView
-from constants import VIEW_PREFIX
+from constants import VIEW_PREFIX, AnnotationConstants
 from esh_client import EshRequest
+from query_mapping import get_nested_property
 
 class Constants(object):
     table_name = 'table_name'
@@ -43,7 +44,9 @@ def get_indices(tables, schema_name, hana_version):
             indices.append(sql)
         #CREATE UNIQUE INDEX idx3 ON t(b, c);
         for i, (prop_name, prop) in enumerate(table[Constants.columns].items()):
-            if 'annotations' in prop and '@sap.esh.isText' in prop['annotations'] and prop['annotations']['@sap.esh.isText']:
+            sap_esh_isText = get_nested_property(prop, ['annotations', AnnotationConstants.SAP, AnnotationConstants.Esh, AnnotationConstants.IsText])
+            if sap_esh_isText:
+            # if 'annotations' in prop and '@sap.esh.isText' in prop['annotations'] and prop['annotations']['@sap.esh.isText']:
                 if hana_version == 2:
                     indices.append(f'create fulltext index "{table[Constants.table_name]}_{i}" on "{schema_name}"."{table[Constants.table_name]}" ("{prop_name}") fast preprocess on fuzzy search index on search only off async')
                 elif hana_version == 4:

@@ -149,8 +149,10 @@ class ColumnView:
                 if column['type'] in ['BLOB', 'CLOB', 'NCLOB']:
                     if 'annotations' in column:
                         sap_esh_isText = get_nested_property(column['annotations'], [AnnotationConstants.SAP, AnnotationConstants.Esh, AnnotationConstants.IsText])
+                        # sap_esh_isText = 'annotations' in column and '@sap.esh.isText' in column['annotations']
                         if sap_esh_isText:
-                            set_nested_property(col_conf, [AnnotationConstants.Search, AnnotationConstants.defaultSearchElement], True)
+                            set_nested_property(col_conf, [AnnotationConstants.SAP, AnnotationConstants.Esh, AnnotationConstants.IsText], True)
+                            # set_nested_property(col_conf, ['@sap.esh.isText'], column['annotations']['@sap.esh.isText'])
                 elif column['type'] not in ['ST_POINT', 'ST_GEOMETRY']:
                     #col_conf['@Search.defaultSearchElement'] = True
                     set_nested_property(col_conf, [AnnotationConstants.Search, AnnotationConstants.defaultSearchElement], True)

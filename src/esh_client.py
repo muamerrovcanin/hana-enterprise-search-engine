@@ -1,7 +1,7 @@
 """Classes to define a query"""
 from decimal import Decimal
 from enum import Enum
-from typing import Any, List, Literal, Annotated, Union
+from typing import Any, List, Literal, Annotated, Union, NewType
 from pydantic import BaseModel, Field
 
 from constants import AnnotationConstants
@@ -338,7 +338,7 @@ class AnnotationUIIdentificationType(str, Enum):
     AS_DATAPOINT = "AS_DATAPOINT"
     AS_CHART = "AS_CHART"
     FOR_INTENT_BASED_NAVIGATION = "FOR_INTENT_BASED_NAVIGATION"
-    STANDARD = "sfgsfgsfdg"
+    STANDARD = "STANDARD"
     WITH_INTENT_BASED_NAVIGATION = "WITH_INTENT_BASED_NAVIGATION"
     WITH_NAVIGATION_PATH = "WITH_NAVIGATION_PATH"
     WITH_URL = "WITH_URL"
@@ -405,12 +405,6 @@ class AnnotationEnterpriseSearch(BaseModel):
 class AnnotationSapCommon(BaseModel):
     Label: str | None
 
-class AnnotationSap(BaseModel):
-    Common: AnnotationSapCommon | None
-
-    class Config:
-        extra = 'forbid'
-
 
 class AnnotationEndUserText(BaseModel):
     label: str | None
@@ -418,6 +412,19 @@ class AnnotationEndUserText(BaseModel):
     class Config:
         extra = 'forbid'
 
+class AnnotationSapEsh(BaseModel):
+    IsText: bool | None
+    IsVirtual: bool | None
+    Configuration: list["EshConfiguration"] | None
+
+    class Config:
+        extra = 'forbid'
+class AnnotationSap(BaseModel):
+    Common: AnnotationSapCommon | None
+    Esh: AnnotationSapEsh | None
+
+    class Config:
+        extra = 'forbid'
 class AnnotationSemantics(BaseModel):
     imageUrl: bool | None
 class EshConfigurationElement(BaseModel):
@@ -432,6 +439,8 @@ class EshConfigurationElement(BaseModel):
 
     class Config:
         extra = 'forbid'
+
+
 
 
 class EshConfiguration(BaseModel):
@@ -455,6 +464,10 @@ class EshRequest(BaseModel):
     rules: list[Rule] | None
     configurations: list[EshConfiguration] | None
 
+AnnotationSapEsh.update_forward_refs()
+# EshConfigurationElement.update_forward_refs()
+# EshConfiguration.update_forward_refs()
+
 if __name__ == '__main__':
     # a = EshConfigurationElement(ref=["a"], b="SA", annotations={'@a.b':'s'})
     # print(a)
@@ -463,3 +476,7 @@ if __name__ == '__main__':
     #print(b)
     #print(b.dict(exclude_none=True, by_alias=True))
     print(json.dumps(b.dict(exclude_none=True, by_alias=True), indent=4))
+
+    conf = {'id': "PERSON", "@SAP": {'Esh':{ 'Configuration': [{'id': "PERSON"}]}}}
+    esh_config = EshConfiguration.parse_obj(conf)
+    print(esh_config.dict(exclude_none=True, by_alias=True))
