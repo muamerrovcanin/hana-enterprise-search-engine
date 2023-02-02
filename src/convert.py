@@ -247,24 +247,10 @@ def process_property(cson, pk, table, entity, element_name, table_name_mapping, 
                     # entity['elements'][element_name_ext][esh_config_item.id]['dynamic_annotations'] = dynamic_property_annotations
                     entity['elements'][element_name_ext]['dynamic_annotations'][config_element.id] = dynamic_property_annotations
                     break
-        '''
-        entity_identifier = list(table_name_mapping.int)[-1] # take the last one
-        for entity_configuration in cson['definitions'][entity_name]['@sap.esh.Configuration']:
-            if entity_configuration['id'] == entity_identifier:
-                for el in entity_configuration['elements']:
-                    if el['ref'] == table['columns'][element_name]['external_path']:
-                        dynamic_property_annotations = {k:v for k,v in el.items() if k.startswith('@') and k not in COLUMN_ANNOTATIONS}
-                        break
-                break
-        '''
     else:
         property_annotations = {k:v for k,v in element.items() if k.startswith('@') } #and k not in COLUMN_ANNOTATIONS
         if property_annotations:
             entity['elements'][element_name_ext]['annotations'] = property_annotations
-    #for k, v in dynamic_property_annotations.items():
-    #    if 'annotations' not in entity['elements'][element_name_ext]:
-    #        entity['elements'][element_name_ext]['annotations'] = {}
-    #    entity['elements'][element_name_ext]['annotations'][k] = v
     
 
 def cson_entity_to_tables(table_name_mapping, cson, tables, path, type_name, type_definition,\
@@ -296,23 +282,11 @@ def cson_entity_to_tables(table_name_mapping, cson, tables, path, type_name, typ
                             esh_configuration = esh_config_item
                         else:
                             esh_configuration = EshConfiguration.parse_obj(esh_config_item)
-                    #for k,v in esh_configuration.items():
-                    #    if k.startswith('@'):
-                    #        dynamic_annotations[k] = v
-                    # if not esh_configuration.elements:
-                    #    raise Exception('missing mandatory property elements in the configuration: ' + esh_configuration.id)
-                    
-                    # dynamic_annotations = {k:v for k,v in esh_configuration.dict(exclude_none=True, by_alias=True).items() if k.startswith('@')}
-                    # serialized_annotations = get_annotations_serialized(esh_configuration.dict(exclude_none=True, by_alias=True))
                     dynamic_annotations = {k:v for k,v in esh_configuration.dict(exclude_none=True, by_alias=True).items() if k.startswith('@')}
                     if 'dynamic_annotations' not in entity:
                         entity['dynamic_annotations'] = {}
                     entity['dynamic_annotations'][esh_configuration.id] = dynamic_annotations
                 annotations = {k:v for k,v in type_definition.items() if k.startswith('@')}
-                # annotations = {k:v for k,v in type_definition.items() if k.startswith('@') and k != '@sap.esh.Configuration'}
-                #if dynamic_annotations:
-                #    for k,v in dynamic_annotations.items():
-                #        annotations[k] = v
                 if annotations:
                     entity['annotations'] = annotations
                 pk_column_name, _ = column_name_mapping.register([type_definition['pk']])

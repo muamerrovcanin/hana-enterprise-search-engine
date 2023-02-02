@@ -163,11 +163,18 @@ class TestStringMethods(unittest.TestCase):
         print(mapped_object_b.to_statement())
         self.assertEqual(mapped_object_b.to_statement(), "bb.cc")
 
-        mapped_comparison = esh_objects.map_query(esh_client.Comparison(property="land",operator=esh_client.ComparisonOperator.EqualCaseInsensitive,value="negde"))
-        m_items = [esh_client.StringValue(value='www'), esh_client.StringValue(value='222'), esh_client.StringValue(value='333')]
-
-        comp = {'property': "language", \
-            'operator': ':EQ:', 'value': { esh_objects.Constants.type: 'StringValue', 'value': 'Python'}}
+        comp = {
+                'type': 'Comparison', 
+                'property': { 
+                    esh_objects.Constants.type: 'StringValue',
+                    'value': 'language'
+                    },
+                'operator': ':EQ:', 
+                'value': { 
+                    esh_objects.Constants.type: 'StringValue',
+                    'value': 'Python'
+                    }
+                }
         aas = esh_objects.map_query(esh_client.Comparison.parse_obj(comp))
         self.assertEqual(aas.to_statement(), 'language:EQ:Python')
 
@@ -632,7 +639,16 @@ class TestStringMethods(unittest.TestCase):
         self.assertEqual(so_mapped.to_statement(), "/$all?$top=10&$apply=filter(Search.search(query='(lastName:Doe AND firstName:Jane)'))")
 
 
-        mv = esh_client.MultiValues(items=["one", "two"], separator=",", encloseStart="[", encloseEnd="]")
+        mv = esh_client.MultiValues(items=[
+            {
+                'type': 'StringValue',
+                'value': 'one'
+            },
+            {
+                'type': 'StringValue',
+                'value': 'two'
+            }
+            ], separator=",", encloseStart="[", encloseEnd="]")
         mv_mapped = esh_objects.map_query(mv)
         self.assertEqual(mv_mapped.to_statement(), "[one,two]")
 
@@ -642,11 +658,11 @@ class TestStringMethods(unittest.TestCase):
                 operator=esh_client.LogicalOperator.AND,
                 items=[
                     esh_client.Comparison(
-                        property="city",
+                        property=esh_client.StringValue(value="city"),
                         operator=esh_client.ComparisonOperator.EqualCaseInsensitive,
                         value=esh_client.StringValue(value="Mannheim")),
                     esh_client.Comparison(
-                        property="company",
+                        property=esh_client.StringValue(value="company"),
                         operator=esh_client.ComparisonOperator.EqualCaseInsensitive,
                         value=esh_client.StringValue(value="SAP")),  
                 ]
@@ -1026,11 +1042,11 @@ class TestStringMethods(unittest.TestCase):
         termJune_fuzziness_mapped_phrase = esh_objects.map_query(termJune_fuzziness_phrase)
         self.assertEqual(termJune_fuzziness_mapped_phrase.to_statement(), '"J\\\\?une\\\\:"~0.73')
 
-        mv = esh_client.MultiValues(items=["firstName", "lastName"])
+        mv = esh_client.MultiValues(items=[esh_client.StringValue(value="firstName"),esh_client.StringValue(value="lastName")])
         co = esh_client.Comparison(
-            property= esh_client.MultiValues(items=["firstName", "lastName"],separator=",",encloseStart="(", encloseEnd=")"),
+            property= esh_client.MultiValues(items=[esh_client.StringValue(value="firstName"),esh_client.StringValue(value="lastName")],separator=",",encloseStart="(", encloseEnd=")"),
             operator=esh_client.ComparisonOperator.Search,
-            value= esh_client.MultiValues(items=["Max", "Mustermann"],encloseStart="(", encloseEnd=")")
+            value= esh_client.MultiValues(items=[esh_client.StringValue(value="Max"),esh_client.StringValue(value="Mustermann")],encloseStart="(", encloseEnd=")")
         )
         
         
@@ -1080,7 +1096,7 @@ class TestStringMethods(unittest.TestCase):
                 esh_client.Comparison(
                     property=esh_client.Property(property=['createdAt']),
                     operator=esh_client.ComparisonOperator.BetweenCaseInsensitive,
-                    value=esh_client.RangeValue(start='2022-10-01', end='2022-10-31')
+                    value=esh_client.RangeValue(start=esh_client.DateValue(value='2022-10-01'), end=esh_client.DateValue(value='2022-10-31'))
                 )]
 
         ))

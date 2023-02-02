@@ -120,8 +120,6 @@ async def search_query(schema_name, mapping, esh_version, queries, crud, esh_req
             # if is_cross_entity:
                 # ToDo: support free-style
             cv = _get_column_view(mapping, esh_scope, schema_name, pathes.keys(), esh_request)
-            # if esh_request.configurations:
-            #   cv.dynamic_configuration_id = esh_scope
             if dynamic_configuration_id is not None:
                cv.dynamic_configuration_id = dynamic_configuration_id
                cv.default_annotations = False

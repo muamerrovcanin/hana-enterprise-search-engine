@@ -32,7 +32,7 @@ from db_connection_pool import (
     ConnectionPool, Credentials, DBBulkProcessing, DBConnection)
 from esh_client import EshConfiguration, EshObject, EshRequest, SearchRuleSet
 from esh_objects import convert_search_rule_set_query_to_string, generate_search_rule_set_query
-from request_mapping import map_request_to_esh_request, map_request_to_rule_set, map_request_to_rule_set_old
+from request_mapping import map_request_to_rule_set, map_request_to_rule_set_old
 import db_crud as crud
 import db_search as search
 
@@ -329,7 +329,7 @@ async def post_model(tenant_id: str, cson=Body(...), simulate: bool = False):
 
 
 @app.post('/v0.1/configuration/{tenant_id}')
-async def post_model(tenant_id: str, cson_config: EshRequest):
+async def post_configuration(tenant_id: str, cson_config: EshRequest):
     """ Configure ESH model (ESH_CONFIG) """
     # TODO mix cson from database and ESH_CONFIG from Body
     tenant_schema_name = get_tenant_schema_name(tenant_id)
@@ -565,7 +565,6 @@ async def query_v03(tenant_id, esh_version, esh_request: EshRequest):
     mapping = get_mapping(tenant_id, schema_name)
     try:
         c = crud.CRUD(get_ctx(tenant_id))
-        # esh_request = map_request_to_esh_request(body) # body=Body(...)
         return (await search.search_dynamic_esh_query(schema_name, mapping, esh_version, esh_request, c))[0]
         # 
         # return esh_request.dict(exclude_none=True)

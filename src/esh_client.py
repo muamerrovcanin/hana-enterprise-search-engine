@@ -1,7 +1,6 @@
 """Classes to define a query"""
-from decimal import Decimal
 from enum import Enum
-from typing import Any, List, Literal, Annotated, Union, NewType
+from typing import List, Literal, Annotated, Union
 from pydantic import BaseModel, Field
 
 from constants import AnnotationConstants
@@ -458,7 +457,6 @@ class EshConfiguration(BaseModel):
 
 
 class EshRequest(BaseModel):
-    type: Literal['EshRequest'] = 'EshRequest'
     parameters: list[Parameter] | None
     query: EshObject | None #todo check NONE
     rules: list[Rule] | None

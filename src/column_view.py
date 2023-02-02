@@ -188,7 +188,6 @@ class ColumnView:
         annotations = ep['annotations'] if 'annotations' in ep else {}
         if 'dynamic_annotations' in entity_pos:
             annotations = entity_pos['dynamic_annotations'][self.dynamic_configuration_id]
-
         self._add_view_column(join_index, join_path_id,\
             name_path, ep['column_name'], annotations, selector_pos)
 

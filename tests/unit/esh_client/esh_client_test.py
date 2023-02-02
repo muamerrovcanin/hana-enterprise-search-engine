@@ -11,12 +11,14 @@ class TestStringMethods(unittest.TestCase):
         esh_configuration_element_json = '''
             {
                 "ref": ["level0", "level1"],
-                "@Search.defaultSearchElement": true
+                "@Search": {
+                    "defaultSearchElement": true
+                }
             }
         '''
         esh_configuration_element = esh_client.EshConfigurationElement.parse_obj(json.loads(esh_configuration_element_json))
         print(json.dumps(esh_configuration_element.dict(exclude_none=True,by_alias=True)))
-        self.assertEqual(esh_configuration_element.dict(exclude_none=True,by_alias=True), {"ref": ["level0", "level1"], "@Search.defaultSearchElement": True})
+        self.assertEqual(esh_configuration_element.dict(exclude_none=True,by_alias=True), {"ref": ["level0", "level1"], "@Search": { "defaultSearchElement": True}})
         
         #term_json = '''
         #    {
